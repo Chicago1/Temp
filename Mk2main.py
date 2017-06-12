@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-__author__ = 'kylehenry' #testing complete
+__author__ = 'kylehenry' #testing
 # Project: ptycho_gui
 
 import os
@@ -101,7 +101,7 @@ class PtychoDialog(QtGui.QDialog):
         self.set_canvas()
 
         self.rect = Rectangle((0, 0), 0, 0, alpha=0.3, facecolor='gray',
-                              edgecolor='red', linewidth=2)
+                              edgecolor='red', linewidth=2) #this changes the apperacne of the box -D
         #self.canvas.axes.add_patch(self.rect)
         self.show_rect = False
 
