@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-__author__ = 'kylehenry' //yeah
+__author__ = 'kylehenry'
 # Project: ptycho_gui
 
 import os
