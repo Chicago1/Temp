@@ -59,10 +59,10 @@ class PtychoDialog(QtGui.QDialog):
         self.colorbar = None
         self.set_roi_enabled = False
         self.bad_flag = 0
-        self.orient_view = False
+        self.orient_view = True #Changing this to True to fix issue with image being initialy bad -D
         self.thresh = False
         self.flippedud = False
-        self.flippedlr = False
+        self.flippedlr = False #Changing this to True to fix issue with image being initialy bad -D
         self.transposed = False
 
         def __del__(self):
@@ -532,11 +532,18 @@ class PtychoDialog(QtGui.QDialog):
     def average(self):
         #print(np.mean(self.image[self.crop_x0:self.crop_x1,self.crop_y0:self.crop_y1,self.image_slider.value()]))
         xy=self.rect.get_xy()
-        height=abs(self.rect.get_height())
-        width=abs(self.rect.get_width())
+        height=(self.rect.get_height())# can be negative -D
+        width=(self.rect.get_width())
         x2 = xy[0] + width
-        y2 = xy[1] - height
-        print(np.mean((np.transpose(np.flipud(self.image), (1, 0, 2)))[xy[0]:x2, y2:xy[1], self.image_slider.value()]))
+        y2 = xy[1] + height
+        print("Initial",xy)
+        print("Width "+ str(self.rect.get_width()))
+        print("Height " + str(self.rect.get_height()))
+        print("Final",x2,y2)
+        # print("Avg",np.mean((np.fliplr(self.image))[xy[0]:x2, xy[1]:y2, self.image_slider.value()])) #Right now the image is just flipped, since the orient=True
+        print("Avg",np.mean((np.fliplr(self.image))[min((xy[0], x2)):max((xy[0], x2)), min((xy[1], y2)):max((xy[1], y2)), self.image_slider.value()])) #Right now the image is just flipped, since the orient=True
+
+
 
 
 
@@ -1163,7 +1170,7 @@ class PtychoDialog(QtGui.QDialog):
                 fig = canvas.figure
                 fig.clear()
 
-                ax = fig.add_subplot(1, 1, 1)
+                ax = fig.add_subplot(1, 1, 1)# mess with this -D
                 ax.axis("off")
                 fig.subplots_adjust(top=1, left=0, right=1, bottom=0)
                 _cm = mpl.cm.get_cmap(cm_name)
@@ -1210,7 +1217,7 @@ class PtychoDialog(QtGui.QDialog):
         if type == 'diff':
             #file_ = np.load(self.open_file.filename)
             file_ = self.open_file.file_
-            file_ = np.swapaxes(file_,0,2)
+            file_ = np.swapaxes(file_,0,2)#ask xiao jing!
             if file_.ndim == 3:
                 self.show_image(file_, dim='3', new_file=True)
                 self._clear_views()
@@ -1300,7 +1307,7 @@ class PtychoDialog(QtGui.QDialog):
     # reconstruction begins)
     def set_image(self, axes, image, new_file=False):
         log_ = self.log_rbutton.isChecked()
-        orient = self.orient_view
+        orient = self.orient_view #LOOK HERE
         im_to_show = copy.deepcopy(image)
         if log_:
             im_to_show = np.log(im_to_show + 1e-6)
@@ -2552,17 +2559,11 @@ class FileSelector(QtGui.QFrame,PtychoDialog):
 
         with h5py.File(self.filename, 'r') as f: # This works to open .h5 files. However, throws weird pickle error -D
             a = f['proj'][()]
-            #b= np.swapaxes(a,0,2) #swap axis works, but used when displayed in above code instead -D
+            # b= np.swapaxes(a,2,0) #swap axis works, but used when displayed in above code instead -D
             #self.mod_image('transpose') #not this one -D
-            first=f['proj'][0,:,:]
-            print(f['proj'][0,:,:].shape)
-            print(np.mean(f['proj'][0, :, :]))
-            print(np.mean(f['proj'][1, :, :]))
-            print(np.mean(f['proj'][5, :, :]))
-            print(np.mean(f['proj'][86, :, :]))
-            print(np.mean(f['proj'][100, :, :]))
-            print(f['proj'][()].shape)
-            self.file_=a
+            self.file_=np.fliplr(a) #Flippling is not the issue -D
+
+
 
         print('%s set to %s %s' % (self.name, self._filename, str(np.load(self._filename).shape)))
 
