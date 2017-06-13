@@ -138,7 +138,7 @@ class PtychoDialog(QtGui.QDialog):
         self.setLayout(self.vbox)
 
     def set_canvas(self):
-        self.canvas = MplCanvas(width=8, height=0.25, dpi=50)
+        self.canvas = MplCanvas(width=20, height=0.25, dpi=50) #not this canvas#  -D
         self.canvas_gbox = QtGui.QGroupBox()
         self.canvas_vbox = QtGui.QVBoxLayout()
         self.canvas_gbox.setLayout(self.canvas_vbox)
@@ -217,12 +217,15 @@ class PtychoDialog(QtGui.QDialog):
         self.apply_roi_button.setDefault(False)
         self.apply_roi_button.setAutoDefault(False)
         self.apply_roi_button.setEnabled(False)
-        self.apply_roi_button.clicked.connect(self.apply_roi)
+        # self.apply_roi_button.clicked.connect(self.apply_roi)
+
+        self.apply_roi_button.clicked.connect(self.average) #-D
+
         self.bin_cb = QtGui.QCheckBox("Binning")
         self.bin_hbox = QtGui.QHBoxLayout()
         self.bin_qle1 = QtGui.QLineEdit("2")
         self.bin_qle1.setAlignment(QtCore.Qt.AlignHCenter)
-        self.x_label = QtGui.QLabel("x")
+        self.x_label = QtGui.QLabel("x")  #not tool bar coordinates -D
         self.bin_qle2 = QtGui.QLineEdit("2")
         self.bin_qle2.setAlignment(QtCore.Qt.AlignHCenter)
         self.bin_hbox.addWidget(self.bin_qle1)
@@ -318,7 +321,7 @@ class PtychoDialog(QtGui.QDialog):
         self.canvas_vbox.addLayout(self.scale_hbox)
         self.canvas_vbox.addLayout(self.slider_hbox)
         self.canvas_vbox.addWidget(self.canvas)
-        self.canvas_vbox.addWidget(self.mpl_toolbar)
+        self.canvas_vbox.addWidget(self.mpl_toolbar) #definitely the toolbar with the slice pixel values -D
         self.canvas_vbox.addLayout(self.canvas_south1_hbox)
         self.canvas_vbox.addLayout(self.canvas_south2_hbox)
         #self.canvas_vbox.addLayout(self.canvas_south2_grid)
@@ -368,12 +371,12 @@ class PtychoDialog(QtGui.QDialog):
 
     def on_press(self, event):
         if event.inaxes:
-            self.crop_x0 = event.xdata
-            self.crop_y0 = event.ydata
+            self.crop_x0 = round(event.xdata)
+            self.crop_y0 = round(event.ydata)
 
     def on_release(self, event):
-        self.crop_x1 = event.xdata#on release data
-        self.crop_y1 = event.ydata
+        self.crop_x1 = round(event.xdata)#on release data
+        self.crop_y1 = round(event.ydata)
         if event.inaxes:
             if (self.crop_x0, self.crop_y0) == (self.crop_x1, self.crop_y1):
                 if self.bad_flag:
@@ -402,9 +405,6 @@ class PtychoDialog(QtGui.QDialog):
             self.rect.set_height(event.ydata - self.crop_y0)
             self.rect.set_xy((self.crop_x0, self.crop_y0))
             self.canvas.draw()
-#TODO: Make funciton inside this class
-
-    #def something(self):
 
 
 
@@ -427,10 +427,10 @@ class PtychoDialog(QtGui.QDialog):
             self.apply_roi_button.setEnabled(False)
 
     def apply_roi(self):
-        self.set_roi_button.setChecked(False)
-        self.apply_roi_button.setEnabled(False)
-        self.show_rect = False
-        self.rect.remove()
+        # self.set_roi_button.setChecked(False)
+        # self.apply_roi_button.setEnabled(False)
+        # self.show_rect = False
+        # self.rect.remove()
         x = int(round(self.crop_x1)) - int(round(self.crop_x0))
         y = int(round(self.crop_y1)) - int(round(self.crop_y0))
 
@@ -495,37 +495,50 @@ class PtychoDialog(QtGui.QDialog):
                 self.rect.set_width(x_dim)
                 self.rect.set_height(y_dim)
 
+
                 # zero-pad image if smaller than desired dimensions
-                if cropped_image.shape[1] < x_dim or cropped_image.shape[0] < y_dim:
-                    npad_x = x_dim - cropped_image.shape[1]
-                    npad_y = y_dim - cropped_image.shape[0]
-                    npad = ((0, npad_x), (0, npad_y), (0, 0))
-                    cropped_image = np.pad(cropped_image, npad, mode='constant', constant_values=0)
-                return cropped_image
-            elif self.img_type == 'complex':
-                return self.image[int(round(self.crop_y0)):
-                                  int(round(self.crop_y0 + y_dim)),
-                                  int(round(self.crop_x0)):
-                                  int(round(self.crop_x0 + x_dim))]
-            else:
-                return self.image[int(round(self.crop_y0)):
-                                  int(round(self.crop_y0 + y_dim)),
-                                  int(round(self.crop_x0)):
-                                  int(round(self.crop_x0 + x_dim))]
+            #     if cropped_image.shape[1] < x_dim or cropped_image.shape[0] < y_dim:
+            #         npad_x = x_dim - cropped_image.shape[1]
+            #         npad_y = y_dim - cropped_image.shape[0]
+            #         npad = ((0, npad_x), (0, npad_y), (0, 0))
+            #         cropped_image = np.pad(cropped_image, npad, mode='constant', constant_values=0)
+            #     return cropped_image
+            # elif self.img_type == 'complex':
+            #     return self.image[int(round(self.crop_y0)):
+            #                       int(round(self.crop_y0 + y_dim)),
+            #                       int(round(self.crop_x0)):
+            #                       int(round(self.crop_x0 + x_dim))]
+            # else:
+            #     return self.image[int(round(self.crop_y0)):
+            #                       int(round(self.crop_y0 + y_dim)),
+            #                       int(round(self.crop_x0)):
+            #                       int(round(self.crop_x0 + x_dim))]
 
         if self.img_type == '3':
             crop_image = pad_crop(x, y)
-            self.show_image(crop_image, dim='3', new_file=True)
-            self.open_file.file_ = self.image
-            self._clear_views()
-        elif self.img_type == 'complex':
-            crop_image = pad_crop(x, y)
-            self.show_image(crop_image, dim='complex', new_file=True)
-            self._clear_views()
-        else:
-            crop_image = pad_crop(x, y)
-            self.show_image(crop_image, new_file=True)
-            self._clear_views()
+            self.something(crop_image)#trying now to exploit crop commmand such that it can be used to store data
+            # self.show_image(crop_image, dim='3', new_file=True) #Testing croping the image
+            #
+            # self.open_file.file_ = self.image
+            # self._clear_views()
+        # elif self.img_type == 'complex':
+        #     crop_image = pad_crop(x, y)
+        #     self.show_image(crop_image, dim='complex', new_file=True)
+        #     self._clear_views()
+        # else:
+        #     crop_image = pad_crop(x, y)
+        #     self.show_image(crop_image, new_file=True)
+        #     self._clear_views()
+    def average(self):
+        #print(np.mean(self.image[self.crop_x0:self.crop_x1,self.crop_y0:self.crop_y1,self.image_slider.value()]))
+        xy=self.rect.get_xy()
+        height=abs(self.rect.get_height())
+        width=abs(self.rect.get_width())
+        x2 = xy[0] + width
+        y2 = xy[1] - height
+        print(np.mean((np.transpose(np.flipud(self.image), (1, 0, 2)))[xy[0]:x2, y2:xy[1], self.image_slider.value()]))
+
+
 
     def apply_thresh(self, pressed):
         if pressed:
@@ -709,7 +722,7 @@ class PtychoDialog(QtGui.QDialog):
         self.diffraction_data_button.setDefault(False)
         self.diffraction_data_button.setAutoDefault(False)
         self.diffraction_data_button.clicked.connect(lambda: self.show_file('diff'))#add the flip here-D
-        self.diffraction_data_button.clicked.connect(self.transpose_im) #one more transpose step -D
+        # self.diffraction_data_button.clicked.connect(self.transpose_im) #one more transpose step -D
         #everything else not used -D
         self.scan_pattern_label = QtGui.QLabel("Scan pattern (points)")
         self.scan_pattern_fs = FileSelector("Scan pattern (points)")
@@ -1227,6 +1240,7 @@ class PtychoDialog(QtGui.QDialog):
             return
 
     def show_image(self, image, dim=None, new_file=False):
+        print('Test') #test 1 -D
         canvas = self.canvas
         fig = canvas.figure
         ax = fig.add_subplot(111)
@@ -1241,29 +1255,29 @@ class PtychoDialog(QtGui.QDialog):
             self.enable_roi_and_pix()
             #self.im = ax.imshow(image[:,:,self.image_slider.value()], cmap=self._color_map, interpolation='none')
             self.set_image(ax, image[:,:,self.image_slider.value()], new_file=new_file)
-        elif dim == 'plot':
-            self.disable_slider()
-            self.disable_complex()
-            self.disable_mods()
-            self.disable_roi_and_pix()
-            self.plot = ax.plot(image[0, :], image[1, :], 'go', zorder=1)
-            self.plot = ax.plot(image[0, :], image[1, :], zorder=2)
-            '''self.canvas.fig.delaxes(self.canvas.fig.axes[1])
-            self.colorbar = None
-            self.canvas.fig.subplots_adjust(right=0.90)  # default right padding'''
-        elif dim == 'complex':
-            self.disable_slider()
-            self.enable_complex()
-            self.enable_mods()
-            self.enable_roi_and_pix()
-            if self.amp_rbutton.isChecked():
-                #self.im = ax.imshow(np.abs(image), cmap=self._color_map, interpolation='none')
-                self.set_image(ax, np.abs(image), new_file=new_file)
-            elif self.phase_rbutton.isChecked():
-                #self.im = ax.imshow(np.angle(image), cmap=self._color_map, interpolation='none')
-                self.set_image(ax, np.angle(image), new_file=new_file)
-            else:
-                print('complex array error')
+        # elif dim == 'plot':
+        #     self.disable_slider()
+        #     self.disable_complex()
+        #     self.disable_mods()
+        #     self.disable_roi_and_pix()
+        #     self.plot = ax.plot(image[0, :], image[1, :], 'go', zorder=1)
+        #     self.plot = ax.plot(image[0, :], image[1, :], zorder=2)
+        #     '''self.canvas.fig.delaxes(self.canvas.fig.axes[1])
+        #     self.colorbar = None
+        #     self.canvas.fig.subplots_adjust(right=0.90)  # default right padding'''
+        # elif dim == 'complex':
+        #     self.disable_slider()
+        #     self.enable_complex()
+        #     self.enable_mods()
+        #     self.enable_roi_and_pix()
+        #     if self.amp_rbutton.isChecked():
+        #         #self.im = ax.imshow(np.abs(image), cmap=self._color_map, interpolation='none')
+        #         self.set_image(ax, np.abs(image), new_file=new_file)
+        #     elif self.phase_rbutton.isChecked():
+        #         #self.im = ax.imshow(np.angle(image), cmap=self._color_map, interpolation='none')
+        #         self.set_image(ax, np.angle(image), new_file=new_file)
+        #     else:
+        #         print('complex array error')
         else:
             self.disable_slider()
             self.disable_complex()
@@ -1278,6 +1292,7 @@ class PtychoDialog(QtGui.QDialog):
 
         self.image = image
         canvas.axes = ax
+        #self.something(image) #Removing now to see if other something command works #This prints the mean value of the slice, updating each time the slice is changed
         canvas.draw()
 
     # deep copies image to be shown, allowing image modification without
@@ -1517,7 +1532,11 @@ class PtychoDialog(QtGui.QDialog):
             self.transposed = not self.transposed
             if self.img_type == '3':
                 #self.image[:,:,self.image_slider.value()] = self.image[:,:,self.image_slider.value()].T
-                self.image = np.swapaxes(self.image, 0, 1)
+
+
+                #self.image = np.swapaxes(self.image, 0, 1)
+                self.image= np.transpose(self.image,(1,0,2))
+
                 #self.im = ax.imshow(self.image[:,:,self.image_slider.value()], cmap=self._color_map, interpolation='none')
                 self.set_image(ax, self.image[:,:,self.image_slider.value()])
             elif self.img_type == 'plot':
