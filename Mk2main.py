@@ -65,6 +65,9 @@ class PtychoDialog(QtGui.QDialog):
         self.flippedlr = False #Changing this to True to fix issue with image being initialy bad -D
         self.transposed = False
 
+        self.h5 = None
+
+
         def __del__(self):
             # Restore sys.stdout
             sys.stdout = sys.__stdout__
@@ -227,10 +230,17 @@ class PtychoDialog(QtGui.QDialog):
         self.subtract_button.setAutoDefault(False)
         self.subtract_button.setEnabled(False)
 
+        self.save_pix_button = QtGui.QPushButton("Save h5")  # save function on right -D
+        self.save_pix_button.setDefault(False)
+        self.save_pix_button.setAutoDefault(False)
+
+
         # self.normalize_button.clicked.connect(self.apply_roi)
 
         self.normalize_button.clicked.connect(self.norm) #-D
         self.subtract_button.clicked.connect(self.sub)  # -D
+        self.save_pix_button.clicked.connect(self.saveh5)  # -D
+
 
 
         self.bin_cb = QtGui.QCheckBox("Binning")
@@ -288,10 +298,7 @@ class PtychoDialog(QtGui.QDialog):
 
         self.save_and_load_grid = QtGui.QGridLayout()
         #self.save_and_load_grid.setVerticalSpacing(1)
-        self.save_pix_button = QtGui.QPushButton("Save")
-        self.save_pix_button.setDefault(False)
-        self.save_pix_button.setAutoDefault(False)
-        self.save_pix_button.clicked.connect(self.save_img_setup)
+
         self.load_pix_button = QtGui.QPushButton("Load")
         self.load_pix_button.setDefault(False)
         self.load_pix_button.setAutoDefault(False)
@@ -556,6 +563,13 @@ class PtychoDialog(QtGui.QDialog):
         #     crop_image = pad_crop(x, y)
         #     self.show_image(crop_image, new_file=True)
         #     self._clear_views()
+    def saveh5(self):
+        nameh5 = str(QtGui.QFileDialog.getSaveFileName(self, "File name"))
+        if "." not in nameh5:
+            nameh5 = nameh5 + ".h5"
+        with h5py.File(nameh5, 'w') as hf:
+            hf.create_dataset("proj", data=np.fliplr(np.swapaxes(self.h5,0,2)))#test-D
+
     def norm(self): #now will take a slice value in the range from -D
         xy=self.rect.get_xy()
         height=(self.rect.get_height())# can be negative -D
@@ -584,11 +598,14 @@ class PtychoDialog(QtGui.QDialog):
         # ax.imshow(normimage[:,:,self.image_slider.value()])
         #self.image_slider.setValue(0)
         #self.show_file(type='npy')
-        with h5py.File('out_norm.h5', 'w') as hf:
-            hf.create_dataset("proj", data=np.fliplr(np.swapaxes(normimage,0,2)))#test-D
+        # with h5py.File('out_norm.h5', 'w') as hf:
+        #     hf.create_dataset("proj", data=np.fliplr(np.swapaxes(normimage,0,2)))#test-D
         self.set_roi_enable(False)
         self.set_roi_button.setChecked(False)
+        self.h5 = normimage.copy()
         self.show_image(normimage,dim='3',new_file=True)
+
+
     def sub(self):  # now average will take a slice value in the range from -D
         xy = self.rect.get_xy()
         height = (self.rect.get_height())  # can be negative -D
@@ -608,11 +625,13 @@ class PtychoDialog(QtGui.QDialog):
             #print("toop",i)
         #self.im.set_data(subimage) #SET IMAGE DOESNT WORK -D
         #self.show_file(type='npy')
-        with h5py.File('out_sub.h5', 'w') as hf:
-            hf.create_dataset("proj", data=np.fliplr(np.swapaxes(subimage, 0, 2)))  # test-D
+        # with h5py.File('out_sub.h5', 'w') as hf:
+        #     hf.create_dataset("proj", data=np.fliplr(np.swapaxes(subimage, 0, 2)))  # test-D
         self.set_roi_enable(False)
         self.set_roi_button.setChecked(False)
+        self.h5 = subimage.copy()
         self.show_image(subimage, dim='3', new_file=True)
+
     def apply_thresh(self, pressed):
         if pressed:
             self.thresh = True
