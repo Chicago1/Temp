@@ -212,8 +212,8 @@ class PtychoDialog(QtGui.QDialog):
         self.set_roi_button.setDefault(False)
         self.set_roi_button.setAutoDefault(False)
         self.set_roi_button.setCheckable(True)
-
         self.set_roi_button.clicked[bool].connect(self.set_roi_enable)
+
         self.normalize_button = QtGui.QPushButton("Norm")
         self.normalize_button.setDefault(False)
         self.normalize_button.setAutoDefault(False)
@@ -420,7 +420,7 @@ class PtychoDialog(QtGui.QDialog):
 
 
     def set_roi_enable(self, pressed):
-        if pressed:
+        if pressed == True:
             #self.rect.set_visible(True)
             #self.canvas.axes.add_patch(self.rect)
             self.canvas.fig.axes[0].add_patch(self.rect)
@@ -429,6 +429,7 @@ class PtychoDialog(QtGui.QDialog):
             self.set_roi_enabled = True
             self.normalize_button.setEnabled(True)
             self.subtract_button.setEnabled(True)
+
         else:
             #self.rect.set_visible(False)
             self.rect.remove()
@@ -439,7 +440,7 @@ class PtychoDialog(QtGui.QDialog):
             self.subtract_button.setEnabled(False)
 
     def apply_roi(self):
-        # self.set_roi_button.setChecked(False)
+
         # self.normalize_button.setEnabled(False)
         # self.show_rect = False
         # self.rect.remove()
@@ -571,7 +572,8 @@ class PtychoDialog(QtGui.QDialog):
         #self.show_file(type='npy')
         with h5py.File('out_norm.h5', 'w') as hf:
             hf.create_dataset("proj", data=np.fliplr(np.swapaxes(normimage,0,2)))#test-D
-
+        self.set_roi_enable(False)
+        self.set_roi_button.setChecked(False)
     def sub(self):  # now average will take a slice value in the range from -D
         xy = self.rect.get_xy()
         height = (self.rect.get_height())  # can be negative -D
@@ -593,7 +595,8 @@ class PtychoDialog(QtGui.QDialog):
         #self.show_file(type='npy')
         with h5py.File('out_sub.h5', 'w') as hf:
             hf.create_dataset("proj", data=np.fliplr(np.swapaxes(subimage, 0, 2)))  # test-D
-
+        self.set_roi_enable(False)
+        self.set_roi_button.setChecked(False)
     def apply_thresh(self, pressed):
         if pressed:
             self.thresh = True
