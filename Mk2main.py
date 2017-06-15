@@ -208,18 +208,27 @@ class PtychoDialog(QtGui.QDialog):
         self.roi_gbox = QtGui.QGroupBox("ROI")
         self.roi_grid = QtGui.QGridLayout()
         #self.roi_grid.setVerticalSpacing(1)
-        self.set_roi_button = QtGui.QPushButton("Set ROI")
+        self.set_roi_button = QtGui.QPushButton("ROI")
         self.set_roi_button.setDefault(False)
         self.set_roi_button.setAutoDefault(False)
         self.set_roi_button.setCheckable(True)
-        self.set_roi_button.clicked[bool].connect(self.set_roi_enable)
-        self.apply_roi_button = QtGui.QPushButton("Apply")
-        self.apply_roi_button.setDefault(False)
-        self.apply_roi_button.setAutoDefault(False)
-        self.apply_roi_button.setEnabled(False)
-        # self.apply_roi_button.clicked.connect(self.apply_roi)
 
-        self.apply_roi_button.clicked.connect(self.average) #-D
+        self.set_roi_button.clicked[bool].connect(self.set_roi_enable)
+        self.normalize_button = QtGui.QPushButton("Norm")
+        self.normalize_button.setDefault(False)
+        self.normalize_button.setAutoDefault(False)
+        self.normalize_button.setEnabled(False)
+
+        self.subtract_button = QtGui.QPushButton("Sub")
+        self.subtract_button.setDefault(False)
+        self.subtract_button.setAutoDefault(False)
+        self.subtract_button.setEnabled(False)
+
+        # self.normalize_button.clicked.connect(self.apply_roi)
+
+        self.normalize_button.clicked.connect(self.norm) #-D
+        self.subtract_button.clicked.connect(self.sub)  # -D
+
 
         self.bin_cb = QtGui.QCheckBox("Binning")
         self.bin_hbox = QtGui.QHBoxLayout()
@@ -235,7 +244,8 @@ class PtychoDialog(QtGui.QDialog):
         self.bin_cb.stateChanged.connect(self.bin_action)
         self.roi_gbox.setLayout(self.roi_grid)
         self.roi_grid.addWidget(self.set_roi_button, 0, 0)
-        self.roi_grid.addWidget(self.apply_roi_button, 0, 1)
+        self.roi_grid.addWidget(self.normalize_button, 0, 1)
+        self.roi_grid.addWidget(self.subtract_button, 0, 2)
         self.roi_grid.addLayout(self.bin_hbox, 1, 0)
         self.roi_grid.addWidget(self.bin_cb, 1, 1)
         self.roi_grid.addWidget(self.square_cb, 2, 0)
@@ -417,18 +427,20 @@ class PtychoDialog(QtGui.QDialog):
             self.show_rect = True
             self.canvas.draw()
             self.set_roi_enabled = True
-            self.apply_roi_button.setEnabled(True)
+            self.normalize_button.setEnabled(True)
+            self.subtract_button.setEnabled(True)
         else:
             #self.rect.set_visible(False)
             self.rect.remove()
             self.show_rect = False
             self.canvas.draw()
             self.set_roi_enabled = False
-            self.apply_roi_button.setEnabled(False)
+            self.normalize_button.setEnabled(False)
+            self.subtract_button.setEnabled(False)
 
     def apply_roi(self):
         # self.set_roi_button.setChecked(False)
-        # self.apply_roi_button.setEnabled(False)
+        # self.normalize_button.setEnabled(False)
         # self.show_rect = False
         # self.rect.remove()
         x = int(round(self.crop_x1)) - int(round(self.crop_x0))
@@ -529,23 +541,58 @@ class PtychoDialog(QtGui.QDialog):
         #     crop_image = pad_crop(x, y)
         #     self.show_image(crop_image, new_file=True)
         #     self._clear_views()
-    def average(self):
-        #print(np.mean(self.image[self.crop_x0:self.crop_x1,self.crop_y0:self.crop_y1,self.image_slider.value()]))
+    def norm(self): #now will take a slice value in the range from -D
         xy=self.rect.get_xy()
         height=(self.rect.get_height())# can be negative -D
         width=(self.rect.get_width())
         x2 = xy[0] + width
         y2 = xy[1] + height
-        print("Initial",xy)
-        print("Width "+ str(self.rect.get_width()))
-        print("Height " + str(self.rect.get_height()))
-        print("Final",x2,y2)
-        # print("Avg",np.mean((np.fliplr(self.image))[xy[0]:x2, xy[1]:y2, self.image_slider.value()])) #Right now the image is just flipped, since the orient=True
-        print("Avg",np.mean((np.fliplr(self.image))[min((xy[0], x2)):max((xy[0], x2)), min((xy[1], y2)):max((xy[1], y2)), self.image_slider.value()])) #Right now the image is just flipped, since the orient=True
+        length = self.image.shape[2]
+        kingBG=0
+        normimage=self.image.copy()
+        for i in range(length): #range command works -D
+            #self.image_slider.setValue(i)
+            if i == 0:
+                kingBG = np.sum((np.fliplr(self.image))[min((xy[0], x2)):max((xy[0], x2)), min((xy[1], y2)):max((xy[1], y2)),i])
+                #kingBG = np.sum((np.fliplr(self.image))[min((xy[0], x2)):max((xy[0], x2)), min((xy[1], y2)):max((xy[1], y2)), self.image_slider.getValue(i)])
+            else:
+                currentBG = np.sum((np.fliplr(self.image))[min((xy[0], x2)):max((xy[0], x2)), min((xy[1], y2)):max((xy[1], y2)),i])
+                #currentBG = np.sum((np.fliplr(self.image))[min((xy[0], x2)):max((xy[0], x2)), min((xy[1], y2)):max((xy[1], y2)), self.image_slider.getValue(i)])
+                factor=kingBG/currentBG #normalizing factor
+                normimage[:, :, i] *=factor
+                #print("loop",i)
+        #print(np.shape(self.image))
+        #print(np.shape(normimage))
+        #self.show_image(normimage, dim='3', new_file=True) #SHOW IMAGE DOESNT WORK -D
+        # self.image=normimage
+        # ax=self.canvas.fig.add_subplot(111)
+        # ax.imshow(normimage[:,:,self.image_slider.value()])
+        #self.image_slider.setValue(0)
+        #self.show_file(type='npy')
+        with h5py.File('out_norm.h5', 'w') as hf:
+            hf.create_dataset("proj", data=np.fliplr(np.swapaxes(normimage,0,2)))#test-D
 
-
-
-
+    def sub(self):  # now average will take a slice value in the range from -D
+        xy = self.rect.get_xy()
+        height = (self.rect.get_height())  # can be negative -D
+        width = (self.rect.get_width())
+        x2 = xy[0] + width
+        y2 = xy[1] + height
+        length = self.image.shape[2]
+        subimage = self.image.copy()
+        for i in range(length):  # range command works -D
+            #self.image_slider.setValue(i)
+            currentBG = np.mean((np.fliplr(self.image))[min((xy[0], x2)):max((xy[0], x2)), min((xy[1], y2)):max((xy[1], y2)),self.image_slider.value()])
+            currentBG = np.mean((np.fliplr(self.image))[min((xy[0], x2)):max((xy[0], x2)), min((xy[1], y2)):max((xy[1], y2)),i])
+            tempslice = self.image[:,:,i]
+            tempslice -= currentBG
+            tempslice[tempslice<0.] = 0.
+            subimage[:,:,i] = tempslice
+            #print("toop",i)
+        #self.im.set_data(subimage) #SET IMAGE DOESNT WORK -D
+        #self.show_file(type='npy')
+        with h5py.File('out_sub.h5', 'w') as hf:
+            hf.create_dataset("proj", data=np.fliplr(np.swapaxes(subimage, 0, 2)))  # test-D
 
     def apply_thresh(self, pressed):
         if pressed:
@@ -728,8 +775,8 @@ class PtychoDialog(QtGui.QDialog):
         self.diffraction_data_button = QtGui.QPushButton("Show")
         self.diffraction_data_button.setDefault(False)
         self.diffraction_data_button.setAutoDefault(False)
-        self.diffraction_data_button.clicked.connect(lambda: self.show_file('diff'))#add the flip here-D
-        # self.diffraction_data_button.clicked.connect(self.transpose_im) #one more transpose step -D
+        self.diffraction_data_button.clicked.connect(lambda: self.show_file(type='diff'))#add the flip here-D
+        #self.diffraction_data_button.clicked.connect(self.transpose_im) #one more transpose step -D
         #everything else not used -D
         self.scan_pattern_label = QtGui.QLabel("Scan pattern (points)")
         self.scan_pattern_fs = FileSelector("Scan pattern (points)")
@@ -755,7 +802,6 @@ class PtychoDialog(QtGui.QDialog):
         self.probe_file_button.setDefault(False)
         self.probe_file_button.setAutoDefault(False)
         self.probe_file_button.clicked.connect(lambda: self.show_file('prb'))
-
         self.x_scan_step_label = QtGui.QLabel("X Scan step size")
         self.x_scan_step_sb = QtGui.QDoubleSpinBox()
         self.x_scan_step_sb.setMaximumWidth(100)
@@ -1211,9 +1257,21 @@ class PtychoDialog(QtGui.QDialog):
         self.mpl_toolbar._positions.clear()
         self.mpl_toolbar._update_view()
 
-    def show_file(self, type=None):
+    def show_file(self, type):
         self.canvas.fig.clear()
         self.canvas.figure.subplots_adjust(top=0.95, bottom=0.15)
+        if type == 'npy':
+            #file_ = np.load(self.open_file.filename)
+            #file_ = self.open_file.file_
+            file_=self.image
+            #file_.ndim=3
+            #file_ = np.swapaxes(file_, 0, 2)
+            if file_.ndim == 3:
+                self.show_image(file_, dim='3', new_file=True)
+                self._clear_views()
+            else:
+                self.show_image(file_)
+                self._clear_views()
         if type == 'diff':
             #file_ = np.load(self.open_file.filename)
             file_ = self.open_file.file_
@@ -1247,7 +1305,7 @@ class PtychoDialog(QtGui.QDialog):
             return
 
     def show_image(self, image, dim=None, new_file=False):
-        print('Test') #test 1 -D
+        # print('Test') #test 1 -D
         canvas = self.canvas
         fig = canvas.figure
         ax = fig.add_subplot(111)
@@ -1260,6 +1318,7 @@ class PtychoDialog(QtGui.QDialog):
             self.disable_complex()
             self.enable_mods()
             self.enable_roi_and_pix()
+            #print(np.shape(image))
             #self.im = ax.imshow(image[:,:,self.image_slider.value()], cmap=self._color_map, interpolation='none')
             self.set_image(ax, image[:,:,self.image_slider.value()], new_file=new_file)
         # elif dim == 'plot':
@@ -1337,7 +1396,7 @@ class PtychoDialog(QtGui.QDialog):
         else:
             self.im.set_data(im_to_show)
             self.im.changed()'''
-
+        #print(np.shape(im_to_show))
         self.im = axes.imshow(im_to_show, cmap=self._color_map, interpolation='none')
         #self.im = self.canvas.axes.imshow(im_to_show, cmap=self._color_map, interpolation='none')
         '''if not self.colorbar:
@@ -1670,6 +1729,7 @@ class PtychoDialog(QtGui.QDialog):
         settings.setValue('splitter', self.splitter.saveState())
 
         settings.setValue('diffraction_file', self.open_file.file_)
+        settings.setValue('npy_file', self.open_file.file_)
 
         # pass some default values
         '''settings.setValue('nx_obj', self.nx_obj)
@@ -2511,7 +2571,7 @@ class MplCanvas(FigureCanvas):
         self._active = False
 
 class FileSelector(QtGui.QFrame,PtychoDialog):
-    def __init__(self, name, filter_='*.h5', parent=None, open_=True): #changed from .npy to .h5 -D
+    def __init__(self, name, filter_='*.h5', parent=None, open_=True): #changed from .npy to .h5 -D #very quick
         QtGui.QFrame.__init__(self, parent)
         self.layout = QtGui.QGridLayout()
         self.setLayout(self.layout)
