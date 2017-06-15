@@ -104,6 +104,9 @@ class PtychoDialog(QtGui.QDialog):
                               edgecolor='red', linewidth=2) #this changes the apperacne of the box -D
         #self.canvas.axes.add_patch(self.rect)
         self.show_rect = False
+        self.rect_xy=0
+        self.rect_height=0
+        self.rect_width=0
 
         self.start_button.clicked.connect(self.start)
         self.start_button.setDefault(False)
@@ -414,9 +417,20 @@ class PtychoDialog(QtGui.QDialog):
             self.rect.set_width(event.xdata - self.crop_x0) #crop_x0 is lower, crop_x1 is higher -D
             self.rect.set_height(event.ydata - self.crop_y0)
             self.rect.set_xy((self.crop_x0, self.crop_y0))
+
+            self.rect_xy=self.rect.get_xy()
+            self.rect_height = self.rect.get_height()
+            self.rect_width = self.rect.get_width()
+
             self.canvas.draw()
 
-
+    def initrect(self):
+        rect=Rectangle((0, 0), 0, 0, alpha=0.3, facecolor='gray',
+                              edgecolor='red', linewidth=2)
+        rect.set_xy(self.rect_xy)
+        rect.set_height(self.rect_height)
+        rect.set_width(self.rect_width)
+        return rect
 
 
     def set_roi_enable(self, pressed):
@@ -574,6 +588,7 @@ class PtychoDialog(QtGui.QDialog):
             hf.create_dataset("proj", data=np.fliplr(np.swapaxes(normimage,0,2)))#test-D
         self.set_roi_enable(False)
         self.set_roi_button.setChecked(False)
+        self.show_image(normimage,dim='3',new_file=True)
     def sub(self):  # now average will take a slice value in the range from -D
         xy = self.rect.get_xy()
         height = (self.rect.get_height())  # can be negative -D
@@ -597,6 +612,7 @@ class PtychoDialog(QtGui.QDialog):
             hf.create_dataset("proj", data=np.fliplr(np.swapaxes(subimage, 0, 2)))  # test-D
         self.set_roi_enable(False)
         self.set_roi_button.setChecked(False)
+        self.show_image(subimage, dim='3', new_file=True)
     def apply_thresh(self, pressed):
         if pressed:
             self.thresh = True
@@ -1311,6 +1327,7 @@ class PtychoDialog(QtGui.QDialog):
         # print('Test') #test 1 -D
         canvas = self.canvas
         fig = canvas.figure
+        fig.clear()
         ax = fig.add_subplot(111)
         self.img_type = dim
         if type(image) is not np.ndarray:
@@ -1357,6 +1374,7 @@ class PtychoDialog(QtGui.QDialog):
             self.set_image(ax, image, new_file=new_file)
 
         if self.show_rect:
+            self.rect=self.initrect()
             ax.add_patch(self.rect)
 
         self.image = image
@@ -1562,6 +1580,7 @@ class PtychoDialog(QtGui.QDialog):
     def mod_image(self, mod, reset_zoom=False):
         canvas = self.canvas
         fig = canvas.figure
+        fig.clear()
         ax = fig.add_subplot(111)
 
         if mod == 'flipud':
@@ -1579,6 +1598,7 @@ class PtychoDialog(QtGui.QDialog):
                     #ax.imshow(np.angle(self.image), cmap=self._color_map, interpolation='none')
                     self.set_image(ax, np.angle(self.image))
             else:
+                self.rect = self.initrect()
                 self.set_image(ax, self.image)
         elif mod == 'fliplr':
             self.mod_bad_pix(mod)
@@ -1595,6 +1615,7 @@ class PtychoDialog(QtGui.QDialog):
                     #ax.imshow(np.angle(self.image), cmap=self._color_map, interpolation='none')
                     self.set_image(ax, np.angle(self.image))
             else:
+                self.rect = self.initrect()
                 self.set_image(ax, self.image)
         elif mod == 'transpose':
             self.mod_bad_pix(mod)
@@ -1628,6 +1649,7 @@ class PtychoDialog(QtGui.QDialog):
                 #self.im = ax.imshow(self.image, cmap=self._color_map, interpolation='none')
                 self.set_image(ax, self.image)
             if self.show_rect:
+                self.rect = self.initrect()
                 ax.add_patch(self.rect)
         elif mod == 'cmap':
             if self.img_type == '3':
@@ -1644,6 +1666,7 @@ class PtychoDialog(QtGui.QDialog):
                 #ax.imshow(self.image, cmap=self._color_map, interpolation='none')
                 self.set_image(ax, self.image, new_file=reset_zoom)
             if self.show_rect:
+                self.rect = self.initrect()
                 ax.add_patch(self.rect)
         elif mod == 'log':
             if self.img_type == '3':
