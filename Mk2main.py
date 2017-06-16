@@ -24,6 +24,8 @@ import scipy.stats as st
 import math
 from scipy import interpolate
 from scipy import ndimage
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 import matplotlib.pyplot as plt
 
 #import align_class #kcode
@@ -65,7 +67,9 @@ class PtychoDialog(QtGui.QDialog):
         self.flippedlr = False #Changing this to True to fix issue with image being initialy bad -D
         self.transposed = False
 
-        self.h5 = None
+        self.h5 = None #h.5 file -D
+
+        self.vmax = 0
 
 
         def __del__(self):
@@ -432,8 +436,7 @@ class PtychoDialog(QtGui.QDialog):
             self.canvas.draw()
 
     def initrect(self):
-        rect=Rectangle((0, 0), 0, 0, alpha=0.3, facecolor='gray',
-                              edgecolor='red', linewidth=2)
+        rect=Rectangle((0, 0), 0, 0, alpha=0.3, facecolor='gray', edgecolor='red', linewidth=2)
         rect.set_xy(self.rect_xy)
         rect.set_height(self.rect_height)
         rect.set_width(self.rect_width)
@@ -563,6 +566,11 @@ class PtychoDialog(QtGui.QDialog):
         #     crop_image = pad_crop(x, y)
         #     self.show_image(crop_image, new_file=True)
         #     self._clear_views()
+
+
+
+
+
     def saveh5(self):
         nameh5 = str(QtGui.QFileDialog.getSaveFileName(self, "File name"))
         if "." not in nameh5:
@@ -571,42 +579,38 @@ class PtychoDialog(QtGui.QDialog):
             hf.create_dataset("proj", data=np.fliplr(np.swapaxes(self.h5,0,2)))#test-D
 
     def norm(self): #now will take a slice value in the range from -D
+        #Can I change i = 0 to i = getslidervalue()? I did it anyway, seems to work
         xy=self.rect.get_xy()
         height=(self.rect.get_height())# can be negative -D
         width=(self.rect.get_width())
         x2 = xy[0] + width
         y2 = xy[1] + height
         length = self.image.shape[2]
-        kingBG=0
         normimage=self.image.copy()
+        kingBG = np.sum((np.fliplr(self.image))[min((xy[0], x2)):max((xy[0], x2)), min((xy[1], y2)):max((xy[1], y2)), self.image_slider.value()])
         for i in range(length): #range command works -D
-            #self.image_slider.setValue(i)
-            if i == 0:
-                kingBG = np.sum((np.fliplr(self.image))[min((xy[0], x2)):max((xy[0], x2)), min((xy[1], y2)):max((xy[1], y2)),i])
-                #kingBG = np.sum((np.fliplr(self.image))[min((xy[0], x2)):max((xy[0], x2)), min((xy[1], y2)):max((xy[1], y2)), self.image_slider.getValue(i)])
-            else:
-                currentBG = np.sum((np.fliplr(self.image))[min((xy[0], x2)):max((xy[0], x2)), min((xy[1], y2)):max((xy[1], y2)),i])
-                #currentBG = np.sum((np.fliplr(self.image))[min((xy[0], x2)):max((xy[0], x2)), min((xy[1], y2)):max((xy[1], y2)), self.image_slider.getValue(i)])
-                factor=kingBG/currentBG #normalizing factor
-                normimage[:, :, i] *=factor
-                #print("loop",i)
-        #print(np.shape(self.image))
-        #print(np.shape(normimage))
-        #self.show_image(normimage, dim='3', new_file=True) #SHOW IMAGE DOESNT WORK -D
-        # self.image=normimage
-        # ax=self.canvas.fig.add_subplot(111)
-        # ax.imshow(normimage[:,:,self.image_slider.value()])
-        #self.image_slider.setValue(0)
-        #self.show_file(type='npy')
-        # with h5py.File('out_norm.h5', 'w') as hf:
-        #     hf.create_dataset("proj", data=np.fliplr(np.swapaxes(normimage,0,2)))#test-D
+            currentBG = np.sum((np.fliplr(self.image))[min((xy[0], x2)):max((xy[0], x2)), min((xy[1], y2)):max((xy[1], y2)),i])
+            factor=kingBG/currentBG #normalizing factor
+            normimage[:, :, i] *=factor
+        self.create_cmap_previews()
         self.set_roi_enable(False)
         self.set_roi_button.setChecked(False)
         self.h5 = normimage.copy()
         self.show_image(normimage,dim='3',new_file=True)
+        maxshow = 0
+        for i in range(length):
+            if np.amax((np.fliplr(self.image))[:, :,i]) >= maxshow:
+                maxshow= np.amax((np.fliplr(self.image))[:, :, i])
+            print("Maxshow=",maxshow, "slide=", i)
+        self.vmax = maxshow
+        self.show_image(normimage,dim='3',new_file=True)
+        print("########")
+
+
 
 
     def sub(self):  # now average will take a slice value in the range from -D
+        # Can I put currentBG outside the loop?
         xy = self.rect.get_xy()
         height = (self.rect.get_height())  # can be negative -D
         width = (self.rect.get_width())
@@ -616,7 +620,6 @@ class PtychoDialog(QtGui.QDialog):
         subimage = self.image.copy()
         for i in range(length):  # range command works -D
             #self.image_slider.setValue(i)
-            currentBG = np.mean((np.fliplr(self.image))[min((xy[0], x2)):max((xy[0], x2)), min((xy[1], y2)):max((xy[1], y2)),self.image_slider.value()])
             currentBG = np.mean((np.fliplr(self.image))[min((xy[0], x2)):max((xy[0], x2)), min((xy[1], y2)):max((xy[1], y2)),i])
             tempslice = self.image[:,:,i]
             tempslice -= currentBG
@@ -1258,7 +1261,13 @@ class PtychoDialog(QtGui.QDialog):
                 ax.axis("off")
                 fig.subplots_adjust(top=1, left=0, right=1, bottom=0)
                 _cm = mpl.cm.get_cmap(cm_name)
-                ax.imshow(points, aspect='auto', cmap=_cm, origin='lower', interpolation='none')
+
+                #TODO: Change this to fit the norm
+                if self.vmax != 0:
+                    ax.imshow(points, aspect='auto', cmap=_cm, vmin=0, vmax=self.vmax, origin='lower', interpolation='none')
+                    print("Self.vmax=",self.vmax)
+                else:
+                    ax.imshow(points, aspect='auto', cmap=_cm, origin='lower', interpolation='none')
                 try:
                     fig.savefig(fn)
                 except Exception as ex:
@@ -1313,7 +1322,7 @@ class PtychoDialog(QtGui.QDialog):
         if type == 'diff':
             #file_ = np.load(self.open_file.filename)
             file_ = self.open_file.file_
-            file_ = np.swapaxes(file_,0,2)#ask xiao jing!
+            file_ = np.swapaxes(file_,0,2)
             if file_.ndim == 3:
                 self.show_image(file_, dim='3', new_file=True)
                 self._clear_views()
@@ -1347,6 +1356,7 @@ class PtychoDialog(QtGui.QDialog):
         canvas = self.canvas
         fig = canvas.figure
         fig.clear()
+        #F: this is ax
         ax = fig.add_subplot(111)
         self.img_type = dim
         if type(image) is not np.ndarray:
@@ -1437,19 +1447,27 @@ class PtychoDialog(QtGui.QDialog):
             self.im.set_data(im_to_show)
             self.im.changed()'''
         #print(np.shape(im_to_show))
-        self.im = axes.imshow(im_to_show, cmap=self._color_map, interpolation='none')
-        #self.im = self.canvas.axes.imshow(im_to_show, cmap=self._color_map, interpolation='none')
-        '''if not self.colorbar:
-            if self.img_type != 'plot':
-                self.colorbar = self.canvas.fig.colorbar(self.im)
+        #Find
+        if self.vmax != 0:
+            self.im = axes.imshow(im_to_show, cmap=self._color_map, vmax=self.vmax, interpolation='none')  # interesting- D
+            print("Self.vmax=", self.vmax)
+
+        #TODO: Check with XJ if this works
         else:
-            if self.img_type != 'plot':
-                #self.colorbar.set_clim(im_to_show.min(), im_to_show.max())
-                self.colorbar.update_bruteforce(self.im)
-            else:
-                self.canvas.fig.delaxes(self.canvas.fig.axes[1])
-                self.colorbar = None
-                self.canvas.fig.subplots_adjust(right=0.90)  # default right padding'''
+            self.im = axes.imshow(im_to_show, cmap=self._color_map, interpolation='none')  # interesting- D
+        divider = make_axes_locatable(axes)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+
+        #self.im = self.canvas.axes.imshow(im_to_show, cmap=self._color_map, interpolation='none')
+        self.colorbar = self.canvas.fig.colorbar(self.im, cax=cax)
+        # else:
+        #     if self.img_type != 'plot':
+        #         #self.colorbar.set_clim(im_to_show.min(), im_to_show.max())
+        #         self.colorbar.update_bruteforce(self.im)
+        #     else:
+        #         self.canvas.fig.delaxes(self.canvas.fig.axes[1])
+        #         self.colorbar = None
+        #         self.canvas.fig.subplots_adjust(right=0.90)  # default right padding
 
         # preserves zoom when showing new image (MAY BREAK WITH ANY MATPLOTLIB UPDATE)
         if not new_file:
