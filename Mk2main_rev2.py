@@ -1,5 +1,7 @@
 from __future__ import print_function
 
+import tomopy
+
 __author__ = 'kylehenry' #testing
 # Project: ptycho_gui
 
@@ -88,12 +90,15 @@ class PtychoDialog(QtGui.QDialog):
         self.h5 = None #h.5 file -D
 
         self.checked = False
+
         self.x_shift=0
         self.y_shift=0
 
+        self.recon_slice = 0
+        self.rot_center =0
+
         self.vmax = 0
-
-
+        self.locked = False
 
         def __del__(self):
             # Restore sys.stdout
@@ -125,7 +130,7 @@ class PtychoDialog(QtGui.QDialog):
         self.initial_input_data_options = ["Load from h5", "Load from TIFF", "Read from metadata"]
         # TODO: make the internal and load from h5 file functional
         self.alignment_data_options = ["Internal","Load from h5"]
-        self.object_options = ["Internal","Load from h5"]
+        self.center_algo_list = ['Algorithim','art', 'bart','fbp', 'gridrec', 'mlem','osem', 'ospml_hybrid', 'ospml_quad', 'pml_hybrid' , 'pml_quad', 'sirt']
         self.probe_options = ["Load from file", "Random guess"]
 
         self.setWindowTitle("Ptycho GUI")
@@ -608,8 +613,83 @@ class PtychoDialog(QtGui.QDialog):
 
     # find_center function
 
+
+    def lock_in(self):
+        self.locked = [0,0,"Text"]
+        self.locked[0] = np.int(self.iter.text())
+        self.locked[1] = np.int(self.slice_num.text())
+        self.locked[2] = self.center_file_combobox.currentText()
+
+        #Create slice_num
+        print("Number of positions",self.locked[0])
+        print("Slice number",self.locked[1])
+        print("Current Algo", self.locked[2])
+
+
     def find_center(self, click):
-        print("Center")
+
+        self.lock_in()
+
+        str(self.superfile)
+        # splited = self.superfile.split("_")
+        # period_splited = (splited[0:3]) + splited[-1].split(".")
+        # # print("split: ", period_splited)
+        # removed_splited = period_splited[0:4]
+        # # print("split: ", removed_splited)
+        # join_split = [removed_splited[0] + "_" + removed_splited[1], removed_splited[2] + "_" + removed_splited[3]]
+        # # print("join_split:", join_split)
+        fname = str(self.superfile)
+        print(fname)
+
+        #fname = sys.argv[1] + '.h5'
+        #fname_out = sys.argv[1] + '_center.h5'
+        #Ask we want the user to put in the position and which slice
+
+
+        # pos = np.int(sys.argv[2])
+        # num = np.int(sys.argv[3])
+
+        pos = self.locked[1]
+        num = self.locked[0]
+
+        f = h5py.File(fname, 'r')
+        prj = np.array(f['proj'][()])
+        # prj = np.array(f['t0/channel0'])
+
+        theta = np.array(f['angle'])
+        # theta = np.arange(-90,91,2)
+        theta = np.array(theta.copy()) / 180. * np.pi
+
+        f.close()
+
+        # prj = np.swapaxes(prj,1,2)
+
+        s = prj.shape
+        # pos = 20 #np.int(s[1]/2)i
+        nn = s[2]
+        nn += np.mod(nn, 2)
+        cent_test = np.zeros([num, s[2], s[2]])
+        cent_guess = np.linspace(nn / 2 - num / 2, nn / 2 + num / 2, num + 1)
+
+        alg = np.str(self.locked[2])
+        print(alg)
+        for i in range(num):
+            print(cent_guess[i])
+            cent_test[i] = tomopy.recon(prj[:, pos:pos + 1, :], theta, center=cent_guess[i], algorithm=alg,
+                                        num_iter=10)#replaced num_iter= 10 with num_iter = num
+
+        # hf = h5py.File(fname_out, 'w')
+        self.recon_slice = cent_test
+        self.rot_center = cent_guess
+        # hf.create_dataset('recon_slice', data=cent_test)
+        # hf.create_dataset('rot_center', data=cent_guess)
+
+        data = np.fliplr(np.swapaxes(cent_test.copy(), 0, 2)) #Make sure cent_test flipping is ok
+        self.h5 = data.copy()
+        self.show_image(data, dim='3', new_file=True)
+        self._clear_views()
+
+
 
 
 
@@ -682,7 +762,7 @@ class PtychoDialog(QtGui.QDialog):
         elem = join_split[1]
 
         check_align_flag = self.checked
-        f = h5py.File(fname + '_' + elem + '.h5', 'r')
+        f = h5py.File(str(self.superfile), 'r')
 
         data = (np.array((f['proj'][()])))
         self.canvas.fig.clear()
@@ -762,22 +842,16 @@ class PtychoDialog(QtGui.QDialog):
 
     def saveh5(self): #ONLY WORKS IF THE ORIGINAL FILE IS CHANGED (SUB OR NORM)
         nameh5 = str(QtGui.QFileDialog.getSaveFileName(self, "File name"))
-
-
-
-
         if "." not in nameh5:
             nameh5 = nameh5 + ".h5"
-
-
-
         with h5py.File(nameh5, 'w') as hf:
             hf.create_dataset("proj", data=np.fliplr(np.swapaxes(self.h5,2,0)))#test-D
-            hf.create_dataset("x_shift", data=self.x_shift)  # test-D
-            hf.create_dataset("y_shift", data=self.y_shift)  # test-D
-
-
-
+            if self.x_shift and self.y_shift != 0:
+                hf.create_dataset("x_shift", data=self.x_shift)  # test-D
+                hf.create_dataset("y_shift", data=self.y_shift)  # test-D
+            if self.recon_slice and self.rot_center != 0:
+                hf.create_dataset("recon_slice", data=self.recon_slice)  # test-D
+                hf.create_dataset("rot_center", data=self.rot_center)  # test-D
 
     def norm(self): #now will take a slice value in the range from -D
         #Can I change i = 0 to i = getslidervalue()? I did it anyway, seems to work
@@ -943,7 +1017,7 @@ class PtychoDialog(QtGui.QDialog):
 
         self.diffraction_file = ''                        # diffraction data
         self.points_file = ''                             # scan pattern
-        self.object_file = ''                             # object file
+        self.center_file = ''                             # object file
         self.probe_file = ''                              # probe file
 
         self.outer_loops = 1
@@ -1037,15 +1111,32 @@ class PtychoDialog(QtGui.QDialog):
 
 
 
-        #find center gui initiialzed
-        self.object_file_label = QtGui.QLabel("Find center")
-        self.object_file_fs = FileSelector("Object file")
-        self.object_file_combobox = QtGui.QComboBox()
-        self.object_file_combobox.addItems(self.object_options)
-        self.object_file_button = QtGui.QPushButton("Find center")
-        self.object_file_button.setDefault(False)
-        self.object_file_button.setAutoDefault(False)
-        self.object_file_button.clicked.connect(lambda: self.find_center('click'))
+        #find center gui initialzed
+        self.center_file_label = QtGui.QLabel("Find center")
+        self.center_file_fs = FileSelector("Object file")
+        self.center_file_combobox = QtGui.QComboBox()
+        self.center_file_combobox.addItems(self.center_algo_list)
+        self.center_file_button = QtGui.QPushButton("Find center")
+        self.center_file_button.setDefault(False)
+        self.center_file_button.setAutoDefault(False)
+        self.center_file_button.clicked.connect(lambda: self.find_center('click'))
+
+        self.iter = QtGui.QLineEdit('')
+        self.iter.setMinimumWidth(30)
+        self.iter.setMaximumWidth(40)
+        self.iter.setMinimumHeight(20)
+
+        self.slice_num= QtGui.QLineEdit('')
+        self.slice_num.setMinimumWidth(30)
+        self.slice_num.setMaximumWidth(40)
+        self.slice_num.setMinimumHeight(20)
+
+        # self.line_edit.returnPressed.connect(self.line_edit_updated)
+        #obselete
+        self.lock_in_button = QtGui.QPushButton('Lock in')
+        self.lock_in_button.setDefault(False)
+        self.lock_in_button.setAutoDefault(False)
+        self.lock_in_button.clicked.connect(lambda: self.lock_in('click')) #Make a lock in function
 
 
 
@@ -1137,7 +1228,7 @@ class PtychoDialog(QtGui.QDialog):
         self.start_button = QtGui.QPushButton("Start")
         self.stop_button = QtGui.QPushButton("Stop")
         self.advanced_button = QtGui.QPushButton("Advanced")
-        self._settings = ["diffraction_file", "points_file", "object_file", "probe_file", "nx_obj", "ny_obj", "x_roi",
+        self._settings = ["diffraction_file", "points_file", "center_file", "probe_file", "nx_obj", "ny_obj", "x_roi",
                           "y_roi", "save_name", "scan_num", "update_product_flag", "beta", "alpha", "n_iterations",
                           "outer_loops", "start_update_probe", "end_update_probe", "search_range", "sigma1", "sigma2",
                           "amp_max", "amp_min", "pha_max", "pha_min", "ave_i", "start_ave", "display_error_flag",
@@ -1147,7 +1238,7 @@ class PtychoDialog(QtGui.QDialog):
                           "conv_norm_flag", "coh_percent", "position_correction_flag",
                           "position_correction_search_range", "position_correction_start", "position_correction_step"]
 
-        '''self._settings = ["points_file", "object_file", "probe_file", "save_name", "scan_num",
+        '''self._settings = ["points_file", "center_file", "probe_file", "save_name", "scan_num",
                           "update_product_flag", "n_iterations", "amp_max", "amp_min", "pha_max", "pha_min", "ave_i",
                           "start_ave", "processes", "regions", "x_range_um", "y_range_um", "dr_um", "nth", "lambda_nm",
                           "z_m", "ccd_pixel_um"]'''
@@ -1271,19 +1362,43 @@ class PtychoDialog(QtGui.QDialog):
         self.tab1_grid1.addWidget(self.initial_input_data_button, self.tab1_grid1_row, 3)
         self.tab1_grid1_row += 1
 
+        def line_edit_updated(self, text):
+            self.number_of_iterations = str(text)
+
+
+
+        # self.setMinimumHeight(35)
+
+
+
+
+
+
+
         self.tab1_grid1.addWidget(self.alignment_data_label, self.tab1_grid1_row, 0)
         self.tab1_grid1.addWidget(self.al_check_rbutton, self.tab1_grid1_row, 1)
         self.tab1_grid1.addWidget(self.alignment_data_combobox, self.tab1_grid1_row, 2)
         self.tab1_grid1.addWidget(self.alignment_data_button, self.tab1_grid1_row, 3)
         self.tab1_grid1_row += 1
         #find center adjusted
-        #Ask: Do we want a button to lock in best rotation center?
-        self.tab1_grid1.addWidget(self.object_file_label, self.tab1_grid1_row, 0)
-        #self.tab1_grid1.addWidget(self.object_file_fs, self.tab1_grid1_row, 1)
-        self.tab1_grid1.addWidget(self.object_file_button, self.tab1_grid1_row, 1)
-        self.tab1_grid1.addWidget(self.object_file_combobox, self.tab1_grid1_row, 2)
+        self.tab1_grid1.addWidget(self.center_file_label, self.tab1_grid1_row, 0)
+        #self.tab1_grid1.addWidget(self.center_file_fs, self.tab1_grid1_row, 1)
+        self.tab1_grid1.addWidget(self.center_file_combobox, self.tab1_grid1_row+1, 0)
+        #Fix this
+        self.tab1_grid1.addWidget(QtGui.QLabel("Number of positions"),self.tab1_grid1_row, 1)
+        self.tab1_grid1.addWidget(QtGui.QLabel("Input Slice Number"), self.tab1_grid1_row+1, 1)
+
+        self.tab1_grid1.addWidget(self.iter, self.tab1_grid1_row, 2)
+        self.tab1_grid1.addWidget(self.slice_num, self.tab1_grid1_row+1, 2)
+        #self.tab1_grid1.addWidget(self.lock_in_button,self.tab1_grid1_row+1, 3)
+        self.tab1_grid1.addWidget(self.center_file_button, self.tab1_grid1_row, 3)
 
         self.tab1_grid1_row += 1
+
+
+
+
+
         # self.tab1_grid1.addWidget(self.probe_file_label, self.tab1_grid1_row, 0)
         # self.tab1_grid1.addWidget(self.probe_file_fs, self.tab1_grid1_row, 1)
         # self.tab1_grid1.addWidget(self.probe_file_combobox, self.tab1_grid1_row, 2)
@@ -1572,8 +1687,8 @@ class PtychoDialog(QtGui.QDialog):
             self.show_image(file_, dim='plot', new_file=True)
             self._clear_views()
         elif type == 'obj':
-            #file_ = np.load(self.object_file_fs.filename)
-            file_ = self.object_file_fs.file_
+            #file_ = np.load(self.center_file_fs.filename)
+            file_ = self.center_file_fs.file_
             self.show_image(file_, dim='complex', new_file=True)
             self._clear_views()
             '''if file_.ndim == 3:
@@ -2165,13 +2280,13 @@ class PtychoDialog(QtGui.QDialog):
         self.alignment_data_fs.filename = str(value)
 
     @property
-    def object_file(self):
+    def center_file(self):
         """Object file"""
-        return self.object_file_fs.filename
+        return self.center_file_fs.filename
 
-    @object_file.setter
-    def object_file(self, value):
-        self.object_file_fs.filename = str(value)
+    @center_file.setter
+    def center_file(self, value):
+        self.center_file_fs.filename = str(value)
 
     @property
     def probe_file(self):
@@ -2734,7 +2849,7 @@ class PtychoThread(QtCore.QThread):
             outer_loops = settings['outer_loops']
             n_iterations = settings['n_iterations']
             instance = ptycho.ptycho_parallel(settings['diffraction_file'], settings['points_file'],
-                                              object_file=settings['object_file'],
+                                              center_file=settings['center_file'],
                                               probe_file=settings['probe_file'],
                                               )
 
