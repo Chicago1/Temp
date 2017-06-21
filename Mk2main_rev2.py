@@ -122,10 +122,10 @@ class PtychoDialog(QtGui.QDialog):
 
 
 
-        self.diffraction_data_options = ["Load from h5", "Load from TIFF", "Read from metadata"]
+        self.initial_input_data_options = ["Load from h5", "Load from TIFF", "Read from metadata"]
         # TODO: make the internal and load from h5 file functional
-        self.scan_pattern_options = ["Internal","Load from h5"]
-        self.object_options = ["Load from file", "Random guess"]
+        self.alignment_data_options = ["Internal","Load from h5"]
+        self.object_options = ["Internal","Load from h5"]
         self.probe_options = ["Load from file", "Random guess"]
 
         self.setWindowTitle("Ptycho GUI")
@@ -598,7 +598,20 @@ class PtychoDialog(QtGui.QDialog):
         #     self.show_image(crop_image, new_file=True)
         #     self._clear_views()
 
-    #Find align_image function
+
+    #General process:
+        #extract file name
+        #put that into inputs
+        #do math on unflipped,swapped file
+        #flip, swap file
+        #show file
+
+    # find_center function
+
+    def find_center(self, click):
+        print("Center")
+
+
 
 
     def align_image(self , click):  # use self.image
@@ -739,11 +752,13 @@ class PtychoDialog(QtGui.QDialog):
         # # this will return the new numpy array that is alinged
         # return data
 
+        self.x_shift=x_shift
+        self.y_shift=y_shift
         data = np.fliplr(np.swapaxes(data.copy(),0,2))
         self.h5 = data.copy()
         self.show_image(data, dim='3', new_file=True)
         self._clear_views()
-        print("Shown")
+
 
     def saveh5(self): #ONLY WORKS IF THE ORIGINAL FILE IS CHANGED (SUB OR NORM)
         nameh5 = str(QtGui.QFileDialog.getSaveFileName(self, "File name"))
@@ -759,7 +774,7 @@ class PtychoDialog(QtGui.QDialog):
         with h5py.File(nameh5, 'w') as hf:
             hf.create_dataset("proj", data=np.fliplr(np.swapaxes(self.h5,2,0)))#test-D
             hf.create_dataset("x_shift", data=self.x_shift)  # test-D
-            hf.create_dataset("x_shift", data=self.y_shift)  # test-D
+            hf.create_dataset("y_shift", data=self.y_shift)  # test-D
 
 
 
@@ -996,39 +1011,44 @@ class PtychoDialog(QtGui.QDialog):
 
     def set_widgets(self):
         # tab 1
-        self.diffraction_data_label = QtGui.QLabel("Open file") #Add open file functionality -D
+        self.initial_input_data_label = QtGui.QLabel("Open file") #Add open file functionality -D
         self.open_file = FileSelector("Open file")
-        self.diffraction_data_combobox = QtGui.QComboBox()
-        self.diffraction_data_combobox.addItems(self.diffraction_data_options)
-        self.diffraction_data_button = QtGui.QPushButton("Show")
-        self.diffraction_data_button.setDefault(False)
-        self.diffraction_data_button.setAutoDefault(False)
-        self.diffraction_data_button.clicked.connect(lambda: self.show_file(type='diff'))#add the flip here-D
-        #self.diffraction_data_button.clicked.connect(self.transpose_im) #one more transpose step -D
+        self.initial_input_data_combobox = QtGui.QComboBox()
+        self.initial_input_data_combobox.addItems(self.initial_input_data_options)
+        self.initial_input_data_button = QtGui.QPushButton("Show")
+        self.initial_input_data_button.setDefault(False)
+        self.initial_input_data_button.setAutoDefault(False)
+        self.initial_input_data_button.clicked.connect(lambda: self.show_file(type='diff'))#add the flip here-D
+        #self.initial_input_data_button.clicked.connect(self.transpose_im) #one more transpose step -D
         #everything else not used -D
-        self.scan_pattern_label = QtGui.QLabel("Open file")
-        self.scan_pattern_fs = FileSelector("Open file")
-        self.scan_pattern_combobox = QtGui.QComboBox()
-        self.scan_pattern_combobox.addItems(self.scan_pattern_options)
-        self.scan_pattern_button = QtGui.QPushButton("Align")
-        self.scan_pattern_button.setDefault(False)
-        self.scan_pattern_button.setAutoDefault(False)
+        self.alignment_data_label = QtGui.QLabel("Align file")
+        self.alignment_data_fs = FileSelector("Open file")
+        self.alignment_data_combobox = QtGui.QComboBox()
+        self.alignment_data_combobox.addItems(self.alignment_data_options)
+        self.alignment_data_button = QtGui.QPushButton("Align")
+        self.alignment_data_button.setDefault(False)
+        self.alignment_data_button.setAutoDefault(False)
+
+
         #TODO: make this the align function
-        self.scan_pattern_button.clicked.connect(lambda: self.align_image('click')) #changed to diff because -D
+        self.alignment_data_button.clicked.connect(lambda: self.align_image('click')) #changed to diff because -D
         self.al_check_rbutton = QtGui.QRadioButton("The file is already aligned")
         self.al_check_rbutton.toggled.connect(lambda: self.al_check_function('click'))
 
 
 
-
-        self.object_file_label = QtGui.QLabel("Object file")
+        #find center gui initiialzed
+        self.object_file_label = QtGui.QLabel("Find center")
         self.object_file_fs = FileSelector("Object file")
         self.object_file_combobox = QtGui.QComboBox()
         self.object_file_combobox.addItems(self.object_options)
-        self.object_file_button = QtGui.QPushButton("Show")
+        self.object_file_button = QtGui.QPushButton("Find center")
         self.object_file_button.setDefault(False)
         self.object_file_button.setAutoDefault(False)
-        self.object_file_button.clicked.connect(lambda: self.show_file('obj'))
+        self.object_file_button.clicked.connect(lambda: self.find_center('click'))
+
+
+
         self.probe_file_label = QtGui.QLabel("Probe file")
         self.probe_file_fs = FileSelector("Probe file")
         self.probe_file_combobox = QtGui.QComboBox()
@@ -1245,22 +1265,25 @@ class PtychoDialog(QtGui.QDialog):
 
         '''basic'''
         self.tab1_grid1_row = 0
-        self.tab1_grid1.addWidget(self.diffraction_data_label, self.tab1_grid1_row, 0)
+        self.tab1_grid1.addWidget(self.initial_input_data_label, self.tab1_grid1_row, 0)
         self.tab1_grid1.addWidget(self.open_file, self.tab1_grid1_row, 1)
-        self.tab1_grid1.addWidget(self.diffraction_data_combobox, self.tab1_grid1_row, 2)
-        self.tab1_grid1.addWidget(self.diffraction_data_button, self.tab1_grid1_row, 3)
+        self.tab1_grid1.addWidget(self.initial_input_data_combobox, self.tab1_grid1_row, 2)
+        self.tab1_grid1.addWidget(self.initial_input_data_button, self.tab1_grid1_row, 3)
         self.tab1_grid1_row += 1
-        self.tab1_grid1.addWidget(self.scan_pattern_label, self.tab1_grid1_row, 0)
-        #find AL CHECK AREA I think this is the open area, but will do later
+
+        self.tab1_grid1.addWidget(self.alignment_data_label, self.tab1_grid1_row, 0)
         self.tab1_grid1.addWidget(self.al_check_rbutton, self.tab1_grid1_row, 1)
-        self.tab1_grid1.addWidget(self.scan_pattern_combobox, self.tab1_grid1_row, 2)
-        self.tab1_grid1.addWidget(self.scan_pattern_button, self.tab1_grid1_row, 3)
+        self.tab1_grid1.addWidget(self.alignment_data_combobox, self.tab1_grid1_row, 2)
+        self.tab1_grid1.addWidget(self.alignment_data_button, self.tab1_grid1_row, 3)
         self.tab1_grid1_row += 1
-        # self.tab1_grid1.addWidget(self.object_file_label, self.tab1_grid1_row, 0)
-        # self.tab1_grid1.addWidget(self.object_file_fs, self.tab1_grid1_row, 1)
-        # self.tab1_grid1.addWidget(self.object_file_combobox, self.tab1_grid1_row, 2)
-        # self.tab1_grid1.addWidget(self.object_file_button, self.tab1_grid1_row, 3)
-        # self.tab1_grid1_row += 1
+        #find center adjusted
+        #Ask: Do we want a button to lock in best rotation center?
+        self.tab1_grid1.addWidget(self.object_file_label, self.tab1_grid1_row, 0)
+        #self.tab1_grid1.addWidget(self.object_file_fs, self.tab1_grid1_row, 1)
+        self.tab1_grid1.addWidget(self.object_file_button, self.tab1_grid1_row, 1)
+        self.tab1_grid1.addWidget(self.object_file_combobox, self.tab1_grid1_row, 2)
+
+        self.tab1_grid1_row += 1
         # self.tab1_grid1.addWidget(self.probe_file_label, self.tab1_grid1_row, 0)
         # self.tab1_grid1.addWidget(self.probe_file_fs, self.tab1_grid1_row, 1)
         # self.tab1_grid1.addWidget(self.probe_file_combobox, self.tab1_grid1_row, 2)
@@ -1543,8 +1566,8 @@ class PtychoDialog(QtGui.QDialog):
                 self.show_image(file_)
                 self._clear_views()
         elif type == 'scan':
-            #file_ = np.load(self.scan_pattern_fs.filename)
-            file_ = self.scan_pattern_fs.file_
+            #file_ = np.load(self.alignment_data_fs.filename)
+            file_ = self.alignment_data_fs.file_
             file_ = np.swapaxes(file_, 0, 2) #added just in case -D
             self.show_image(file_, dim='plot', new_file=True)
             self._clear_views()
@@ -2135,11 +2158,11 @@ class PtychoDialog(QtGui.QDialog):
     @property
     def points_file(self):
         """Scan pattern (points)"""
-        return self.scan_pattern_fs.filename
+        return self.alignment_data_fs.filename
 
     @points_file.setter
     def points_file(self, value):
-        self.scan_pattern_fs.filename = str(value)
+        self.alignment_data_fs.filename = str(value)
 
     @property
     def object_file(self):
