@@ -6,6 +6,10 @@ __author__ = 'kylehenry' #testing
 import os
 import sys
 import time
+#new file imports -D
+
+superfile= 0
+
 #import multiprocessing as mp
 import matplotlib
 from PyQt4 import (QtCore, QtGui)
@@ -18,6 +22,7 @@ from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
+from scipy.ndimage.measurements import center_of_mass
 
 import scipy.misc as sm
 import scipy.stats as st
@@ -41,14 +46,26 @@ CMAP_PREVIEW_PATH = os.path.join(os.path.dirname(__file__), '.cmap_previews')
 get_save_filename = QtGui.QFileDialog.getSaveFileName
 get_open_filename = QtGui.QFileDialog.getOpenFileName
 
+#align_proj implementation
+import align_class as ac
+
+
+
 class PtychoDialog(QtGui.QDialog):
 
     CM_DEFAULT = 'jet'
+
+
 
     def __init__(self, parent=None):
         QtGui.QDialog.__init__(self, parent)
         PtychoDialog.instance = self
 
+
+
+
+
+        
         self._thread = None
         self.ion_data = None
         self.img_type = None
@@ -69,7 +86,12 @@ class PtychoDialog(QtGui.QDialog):
 
         self.h5 = None #h.5 file -D
 
+        self.checked = False
+        self.x_shift=0
+        self.y_shift=0
+
         self.vmax = 0
+
 
 
         def __del__(self):
@@ -92,8 +114,16 @@ class PtychoDialog(QtGui.QDialog):
         self.tab4_vbox = QtGui.QVBoxLayout()
         self.advanced = False
 
-        self.diffraction_data_options = ["Load from array", "Load from TIFF", "Read from metadata"]
-        self.scan_pattern_options = ["Load from file", "Generate"]
+        #for the align_proj class
+        self.aligned = False
+
+
+
+
+
+        self.diffraction_data_options = ["Load from h5", "Load from TIFF", "Read from metadata"]
+        # TODO: make the internal and load from h5 file functional
+        self.scan_pattern_options = ["Internal","Load from h5"]
         self.object_options = ["Load from file", "Random guess"]
         self.probe_options = ["Load from file", "Random guess"]
 
@@ -567,16 +597,154 @@ class PtychoDialog(QtGui.QDialog):
         #     self.show_image(crop_image, new_file=True)
         #     self._clear_views()
 
+    #Find align_image function
 
 
+    def align_image(self, click):  # use self.image
+        print("align_image called")
+        #REINSTATE later:
+        internal_image=self.image.copy()
+
+        x_shift=0
+        y_shift=0
+        #use internal image within the functions, then produce an image -D
+        def check_diff(ref, line):
+            return np.sqrt(np.sum((ref - line) ** 2))
+
+        def match_line(ref, line):
+            n = np.size(line)
+            offset = np.arange(n) - n / 2
+            error = np.zeros(n) + 1.e9
+            for i in range(n):
+                tmp = np.roll(line, np.int(offset[i]), 0)
+                if offset[i] < 0:
+                    error[i] = check_diff(ref[:offset[i]], tmp[:offset[i]])
+                else:
+                    error[i] = check_diff(ref[offset[i]:], tmp[offset[i]:])
+            index = np.where(error == np.min(error))
+            # print(index[0][0])
+            return offset[index[0][0]]
+
+        def match_line_bp(ref, line):
+            n = np.size(ref)
+            cc = np.correlate(ref, line, 'same')
+            index = np.where(cc == np.max(cc))
+            return index[0][0] - n / 2
+
+        def find_vertical_shift(proj):
+            nx, ny = np.shape(proj)
+            # ref = np.squeeze(proj[:,0])
+            y_shift = np.zeros(ny)
+            proj_new = np.zeros_like(proj)
+            for i in range(ny):
+                line = np.squeeze(proj[:, i])
+                if i == 0:
+                    ref = line
+                    line_0 = line
+                else:
+                    ref = line_0
+                # norm_ref = np.sqrt(sum(ref)**2)
+                # norm = np.sqrt(sum(line)**2)
+                # line = line * norm_ref / norm
+                y_shift[i] = match_line(ref, line)
+                proj_new[:, i] = np.roll(line, np.int(y_shift[i]), 0)
+            return y_shift, proj_new
+
+        # fname = sys.argv[1]  # (argument 1) -D
+        # elem = sys.argv[2]  # argument 2
+        check_align_flag = self.checked #self.checked when ready # argument 3 #yes/ no check function on GUI #Modify self.checked with buttor
+        # f = h5py.File(fname + '_' + elem + '.h5', 'r')
+        # data = np.array(f['proj'])
+
+        #data = self.image
+
+        #angle = np.array(f['angle'])
+
+        #TODO: change button so that if pressed we run calculation
+        if check_align_flag == False: #fix this later: we want to pull different file if user says file is aligned
+            # f_shift = h5py.File(fname + '_xyshift.h5', 'r') #replace this by making this selectable by user
+            print("Close")
+            tempFile = FileSelector()
+            tempFile.select_file()
+            # x_shift = np.array(f_shift['x_shift'])
+            # y_shift = np.array(f_shift['y_shift'])
+            # f_shift.close()
 
 
-    def saveh5(self):
+        #f.close()
+        # data = np.delete(data,[1,19,20,21,22,33],axis=0)
+        # angle = np.delete(angle,[1,19,20,21,22,33],axis=0)
+
+
+        nz, ny, nx = np.shape(internal_image)
+        ys = 20
+        ye = 100
+        xs = 0
+        xe = nx
+
+        print(np.mean(internal_image[0, :, :]))
+
+        if check_align_flag == True:
+            for i in range(nz):
+                slice = np.squeeze(internal_image[i, ys:ye, xs:xe].copy())
+                norm = np.sqrt(np.sum(slice ** 2))
+                if i == 0:
+                    cm_y = np.zeros(nz)
+                    proj_y = np.zeros((ye - ys, nz))
+                    norm_ref = norm
+                slice = slice * norm_ref / norm
+                internal_image[i, :, :] *= norm_ref / norm
+                cmx, cm_y[i] = center_of_mass(slice)
+                proj_y[:, i] = np.sum(slice, axis=1)
+
+            y_shift = cm_y - cm_y[0]
+            x_shift, proj_new = find_vertical_shift(proj_y)
+            self.x_shift=x_shift
+            self.y_shift=y_shift
+            # f = h5py.File('OUTFILE', 'w')
+            # f.create_dataset('proj', data=internal_image)
+            # f.create_dataset('x_shift', data=x_shift)
+            # f.create_dataset('y_shift', data=y_shift)
+            # f.close
+
+        print(np.mean(internal_image[0, :, :]))
+
+        # plt.figure() #Don't really need to plot figure -D
+        for i in range(nz):
+            print(i,x_shift[i],y_shift[i])
+            tmp = ac.pixel_shift_2d(internal_image[i,:,:],-1*x_shift[i],y_shift[i])
+            tmp = tmp.real
+            tmp[tmp <0 ] = 0
+            internal_image[i,:,:] =tmp.copy()
+            # plt.imshow(data[i,:,:],interpolation='none')
+            # plt.pause(0.1)
+            # plt.show()
+
+        print(np.mean(internal_image[0, :, :]))
+
+        # make this function change self.image
+        self.h5 = internal_image.copy()
+        self.show_image(internal_image, dim='3', new_file=True)
+        print("Shown")
+
+    def saveh5(self): #ONLY WORKS IF THE ORIGINAL FILE IS CHANGED (SUB OR NORM)
         nameh5 = str(QtGui.QFileDialog.getSaveFileName(self, "File name"))
+
+
+
+
         if "." not in nameh5:
             nameh5 = nameh5 + ".h5"
+
+
+
         with h5py.File(nameh5, 'w') as hf:
-            hf.create_dataset("proj", data=np.fliplr(np.swapaxes(self.h5,0,2)))#test-D
+            hf.create_dataset("proj", data=np.fliplr(np.swapaxes(self.h5,2,0)))#test-D
+            hf.create_dataset("x_shift", data=self.x_shift)  # test-D
+            hf.create_dataset("x_shift", data=self.y_shift)  # test-D
+
+
+
 
     def norm(self): #now will take a slice value in the range from -D
         #Can I change i = 0 to i = getslidervalue()? I did it anyway, seems to work
@@ -601,10 +769,10 @@ class PtychoDialog(QtGui.QDialog):
         for i in range(length):
             if np.amax((np.fliplr(self.image))[:, :,i]) >= maxshow:
                 maxshow= np.amax((np.fliplr(self.image))[:, :, i])
-            print("Maxshow=",maxshow, "slide=", i)
+            #print("Maxshow=",maxshow, "slide=", i)
         self.vmax = maxshow
         self.show_image(normimage,dim='3',new_file=True)
-        print("########")
+        #print("########")
 
 
 
@@ -720,6 +888,7 @@ class PtychoDialog(QtGui.QDialog):
             if self.img_type is not None:
                 self.mod_image('lin')
 
+
     def canvas_log(self):
         #if enabled:
         if self.log_rbutton.isChecked():
@@ -819,14 +988,21 @@ class PtychoDialog(QtGui.QDialog):
         self.diffraction_data_button.clicked.connect(lambda: self.show_file(type='diff'))#add the flip here-D
         #self.diffraction_data_button.clicked.connect(self.transpose_im) #one more transpose step -D
         #everything else not used -D
-        self.scan_pattern_label = QtGui.QLabel("Scan pattern (points)")
-        self.scan_pattern_fs = FileSelector("Scan pattern (points)")
+        self.scan_pattern_label = QtGui.QLabel("Open file")
+        self.scan_pattern_fs = FileSelector("Open file")
         self.scan_pattern_combobox = QtGui.QComboBox()
         self.scan_pattern_combobox.addItems(self.scan_pattern_options)
-        self.scan_pattern_button = QtGui.QPushButton("Show")
+        self.scan_pattern_button = QtGui.QPushButton("Align")
         self.scan_pattern_button.setDefault(False)
         self.scan_pattern_button.setAutoDefault(False)
-        self.scan_pattern_button.clicked.connect(lambda: self.show_file('scan'))
+        #TODO: make this the align function
+        self.scan_pattern_button.clicked.connect(lambda: self.align_image('click')) #changed to diff because -D
+        self.al_check_rbutton = QtGui.QRadioButton("Alinged?")
+        self.al_check_rbutton.toggled.connect(lambda: self.al_check_function('click'))
+
+
+
+
         self.object_file_label = QtGui.QLabel("Object file")
         self.object_file_fs = FileSelector("Object file")
         self.object_file_combobox = QtGui.QComboBox()
@@ -1056,11 +1232,12 @@ class PtychoDialog(QtGui.QDialog):
         self.tab1_grid1.addWidget(self.diffraction_data_combobox, self.tab1_grid1_row, 2)
         self.tab1_grid1.addWidget(self.diffraction_data_button, self.tab1_grid1_row, 3)
         self.tab1_grid1_row += 1
-        # self.tab1_grid1.addWidget(self.scan_pattern_label, self.tab1_grid1_row, 0)
-        # self.tab1_grid1.addWidget(self.scan_pattern_fs, self.tab1_grid1_row, 1)
-        # self.tab1_grid1.addWidget(self.scan_pattern_combobox, self.tab1_grid1_row, 2)
-        # self.tab1_grid1.addWidget(self.scan_pattern_button, self.tab1_grid1_row, 3)
-        # self.tab1_grid1_row += 1
+        self.tab1_grid1.addWidget(self.scan_pattern_label, self.tab1_grid1_row, 0)
+        #find AL CHECK AREA I think this is the open area, but will do later
+        self.tab1_grid1.addWidget(self.al_check_rbutton, self.tab1_grid1_row, 1)
+        self.tab1_grid1.addWidget(self.scan_pattern_combobox, self.tab1_grid1_row, 2)
+        self.tab1_grid1.addWidget(self.scan_pattern_button, self.tab1_grid1_row, 3)
+        self.tab1_grid1_row += 1
         # self.tab1_grid1.addWidget(self.object_file_label, self.tab1_grid1_row, 0)
         # self.tab1_grid1.addWidget(self.object_file_fs, self.tab1_grid1_row, 1)
         # self.tab1_grid1.addWidget(self.object_file_combobox, self.tab1_grid1_row, 2)
@@ -1265,7 +1442,7 @@ class PtychoDialog(QtGui.QDialog):
                 #TODO: Change this to fit the norm
                 if self.vmax != 0:
                     ax.imshow(points, aspect='auto', cmap=_cm, vmin=0, vmax=self.vmax, origin='lower', interpolation='none')
-                    print("Self.vmax=",self.vmax)
+                    #print("Self.vmax=",self.vmax)
                 else:
                     ax.imshow(points, aspect='auto', cmap=_cm, origin='lower', interpolation='none')
                 try:
@@ -1304,6 +1481,20 @@ class PtychoDialog(QtGui.QDialog):
         self.mpl_toolbar._positions.clear()
         self.mpl_toolbar._update_view()
 
+    def al_check_function(self,click): #DONT TOUCH CLICK, IT MAKES THIS WORK
+
+
+        if self.al_check_rbutton.isChecked():
+            print("Aligned")
+            self.checked = True
+        else:
+            print("Not Aligned")
+            self.checked = False
+
+    # def align_image(self,click):#DONT TOUCH CLICK, IT MAKES THIS WORK
+    #     print("Right here")
+
+
     def show_file(self, type):
         self.canvas.fig.clear()
         self.canvas.figure.subplots_adjust(top=0.95, bottom=0.15)
@@ -1322,6 +1513,11 @@ class PtychoDialog(QtGui.QDialog):
         if type == 'diff':
             #file_ = np.load(self.open_file.filename)
             file_ = self.open_file.file_
+            if file_ == None:
+                print("NO FILE")
+
+
+            print(file_)
             file_ = np.swapaxes(file_,0,2)
             if file_.ndim == 3:
                 self.show_image(file_, dim='3', new_file=True)
@@ -1447,10 +1643,9 @@ class PtychoDialog(QtGui.QDialog):
             self.im.set_data(im_to_show)
             self.im.changed()'''
         #print(np.shape(im_to_show))
-        #Find
         if self.vmax != 0:
             self.im = axes.imshow(im_to_show, cmap=self._color_map, vmax=self.vmax, interpolation='none')  # interesting- D
-            print("Self.vmax=", self.vmax)
+            #print("Self.vmax=", self.vmax)
 
         #TODO: Check with XJ if this works
         else:
@@ -2632,14 +2827,18 @@ class MplCanvas(FigureCanvas):
         self.fig.set_facecolor(brush_to_color_tuple(window_brush))
         self.fig.set_edgecolor(brush_to_color_tuple(window_brush))
         self._active = False
-
+#find FileSelector
 class FileSelector(QtGui.QFrame,PtychoDialog):
+
+
     def __init__(self, name, filter_='*.h5', parent=None, open_=True): #changed from .npy to .h5 -D #very quick
         QtGui.QFrame.__init__(self, parent)
         self.layout = QtGui.QGridLayout()
         self.setLayout(self.layout)
 
         self.file_ = None
+
+        # self.filename = None
 
         self.filter_ = filter_
 
@@ -2665,10 +2864,26 @@ class FileSelector(QtGui.QFrame,PtychoDialog):
         else:
             self.open_fcn = QtGui.QFileDialog.getSaveFileName
 
+    # superfile = str(copy.deepcopy(self.filename))
+    # print("Superfile is", superfile)
+    # print("preloop", superfile)
+    #
+    # tempfile = ''
+    # backwards = reversed(str(copy.deepcopy(superfile)))
+    # for i in backwards:
+    #     if backwards[i] != '/':
+    #         tempfile = tempfile + backwards[i]
+    #     else:
+    #         break
+    # superfile = tempfile
+    # print("postloop", superfile)
+
     def line_edit_updated(self, text):
         self.filename = str(text)
+    #find Select file in class called FileSelector
 
     def select_file(self):
+
         filename = self.open_fcn(self, self.name, '', self.filter_)
         if not filename:
             return
@@ -2677,6 +2892,9 @@ class FileSelector(QtGui.QFrame,PtychoDialog):
             filename = filename[0]
 
         self.filename = filename
+
+
+
 
         # load the file (change this to .h5 format)
 
@@ -2689,6 +2907,8 @@ class FileSelector(QtGui.QFrame,PtychoDialog):
 
 
         print('%s set to %s %s' % (self.name, self._filename, str(np.load(self._filename).shape)))
+
+
 
     @property
     def filename(self):
@@ -2733,6 +2953,8 @@ class MyStream(QtCore.QObject):
 if __name__ == '__main__': #seems to open program -D
     app = QtGui.QApplication(sys.argv)
 
+    #os.system("align_proj.py" + " tomo_2_Ga_K.h5") # see testing
+
     dialog = PtychoDialog()
     dialog.show()
 
@@ -2742,6 +2964,8 @@ if __name__ == '__main__': #seems to open program -D
     sys.stdout = myStream
 
     sys.exit(app.exec_())
+
+
 
 
 print("done")
