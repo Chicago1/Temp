@@ -654,6 +654,8 @@ class PtychoDialog(QtGui.QDialog):
 
         f = h5py.File(fname, 'r')
         prj = np.array(f['proj'][()])
+        prj = np.fliplr(np.swapaxes(self.image.copy(),0,2))
+
         # prj = np.array(f['t0/channel0'])
 
         theta = np.array(f['angle'])
@@ -764,7 +766,8 @@ class PtychoDialog(QtGui.QDialog):
         check_align_flag = self.checked
         f = h5py.File(str(self.superfile), 'r')
 
-        data = (np.array((f['proj'][()])))
+        #data = (np.array((f['proj'][()])))
+        data = np.fliplr(np.swapaxes(self.image.copy(),0,2))
         self.canvas.fig.clear()
         self.canvas.figure.subplots_adjust(top=0.95, bottom=0.15)
         #self.show_image(data, dim='3', new_file=True)
