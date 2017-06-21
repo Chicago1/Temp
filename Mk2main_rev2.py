@@ -673,11 +673,10 @@ class PtychoDialog(QtGui.QDialog):
         cent_test = np.zeros([num, s[2], s[2]])
         cent_guess = np.linspace(nn / 2 - num / 2, nn / 2 + num / 2, num + 1)
 
-        alg = np.str(self.locked[2])
-        print(alg)
+
         for i in range(num):
             print(cent_guess[i])
-            cent_test[i] = tomopy.recon(prj[:, pos:pos + 1, :], theta, center=cent_guess[i], algorithm=alg,
+            cent_test[i] = tomopy.recon(prj[:, pos:pos + 1, :], theta, center=cent_guess[i], algorithm=str(self.locked[2]),
                                         num_iter=10)#replaced num_iter= 10 with num_iter = num
 
         # hf = h5py.File(fname_out, 'w')
