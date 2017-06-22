@@ -128,7 +128,7 @@ class PtychoDialog(QtGui.QDialog):
 
 
         self.initial_input_data_options = ["Load from h5", "Load from TIFF", "Read from metadata"]
-        # TODO: make the internal and load from h5 file functional
+        # DONE: make the internal and load from h5 file functional
         self.alignment_data_options = ["Internal","Load from h5"]
         self.center_algo_list = ['Algorithim','art', 'bart','fbp', 'gridrec', 'mlem','osem', 'ospml_hybrid', 'ospml_quad', 'pml_hybrid' , 'pml_quad', 'sirt']
         self.probe_options = ["Load from file", "Random guess"]
@@ -610,10 +610,44 @@ class PtychoDialog(QtGui.QDialog):
         #do math on unflipped,swapped file
         #flip, swap file
         #show file
+    #Find recon function
+    def recon(self,click):
+        fname = './tomo_2_Ga_K_aligned.h5'
+        fname_out = './tomo_2_Ga_K_aligned_recon.h5'
+        # fname='./tomo_wo3_xrf_recon_realign.h5'
+        # fname_out='./tomo_wo3_xrf_recon_r2.h5'
 
-    # find_center function
+        # fname = sys.argv[1]+'.h5' #Temporary remove -D
+        # fname_out = sys.argv[1]+'_recon.h5'
 
+        # best_center = np.float(sys.argv[2])
+        # best_center = np.float(11)
 
+        # alg = sys.argv[3]
+        # Ask: should the user be able to change algorithim? -Yes
+        alg = 'ospml_hybrid'
+        num_iter = np.int
+
+        f = h5py.File(fname, 'r+')  # r+ is read/write
+        prj = np.array(f['proj'])
+        prj[prj < 0] = 0
+        angle = np.array(f['angle'])
+        f.close()
+
+        theta = angle / 180. * np.pi
+        best_center = 50.
+        print('reconstructing ...')
+        rec = tomopy.recon(prj[:, :, :], theta, center=best_center, num_iter=20,
+                           algorithm=alg)  # dmlem ospml_hybrid
+
+        hf = h5py.File(fname_out, 'w')
+        hf.create_dataset('data', data=rec)
+        hf.create_dataset('angle', data=angle)
+        hf.close()
+
+    #center function
+    #Ask
+    #make sliding input box that shows the best guess for center based off of slice number
     def lock_in(self):
         self.locked = [0,0,"Text"]
         self.locked[0] = np.int(self.iter.text())
@@ -739,7 +773,7 @@ class PtychoDialog(QtGui.QDialog):
                 proj_new[:, i] = np.roll(line, np.int(y_shift[i]), 0)
             return y_shift, proj_new
 
-            # TODO: Information needed"
+        # Done: Information needed"
 
         # file name - comes from superfile
         # element - comes from superfile
@@ -759,7 +793,8 @@ class PtychoDialog(QtGui.QDialog):
 
 
         fname = join_split[0]
-
+        #Ask: What does the 2 mean in tomo_2_Ga_K.H5
+        #why are restrictions on the file name
         elem = join_split[1]
 
         check_align_flag = self.checked
@@ -783,12 +818,46 @@ class PtychoDialog(QtGui.QDialog):
         # angle = np.delete(angle,[1,19,20,21,22,33],axis=0)
 
 
-        nz, ny, nx = np.shape(data)
-        ys = 20
-        ye = 100
-        xs = 0
-        xe = nx
+        nz, ny, nx = np.shape(data) #Ask: What is ys, ye, xs, xe?:
 
+        print("This is shape",np.shape(data) )
+        #make this a input box that selected the vertical range of data
+        #use the norm-type box to select the user's x initial, x final, y initial , y final
+
+        # ys = 20 #make this the initial y
+        # ye = 100 #make this is final y
+        # xs = 0 #make this initial x
+        # xe = nx #make this final x
+
+        xy = self.rect.get_xy()
+        height = (self.rect.get_height())  # can be negative -D
+        width = (self.rect.get_width())
+        x2 = xy[0] + width
+        y2 = xy[1] + height
+
+        lower_x = min((xy[0], x2))
+        upper_x = max((xy[0], x2))
+
+        lower_y = min((xy[1], y2))
+        upper_y = max((xy[1], y2))
+
+        ys = lower_y
+        ye = upper_y
+
+        xs = lower_x
+        xe = upper_x
+
+        # kingBG = np.sum((np.fliplr(self.image))[min((xy[0], x2)):max((xy[0], x2)), min((xy[1], y2)):max((xy[1], y2)),
+        #                 self.image_slider.value()])
+        # print("Four Corners")
+        # print("min((xy[0], x2))", min((xy[0], x2)))
+        # print("max((xy[0], x2))", max((xy[0], x2)))
+        # print("min((xy[1], y2))", min((xy[1], y2)))
+        # print("max((xy[1], y2))", max((xy[1], y2)))
+        #Ask:
+        #XY: column view
+        #XZ/YZ
+        #
         print(np.mean(data[0, :, :]))
 
         if check_align_flag == False:
@@ -854,7 +923,7 @@ class PtychoDialog(QtGui.QDialog):
             if self.recon_slice and self.rot_center != 0:
                 hf.create_dataset("recon_slice", data=self.recon_slice)  # test-D
                 hf.create_dataset("rot_center", data=self.rot_center)  # test-D
-
+    #Find norm fucntion
     def norm(self): #now will take a slice value in the range from -D
         #Can I change i = 0 to i = getslidervalue()? I did it anyway, seems to work
         xy=self.rect.get_xy()
@@ -1113,7 +1182,7 @@ class PtychoDialog(QtGui.QDialog):
 
 
 
-        #find center gui initialzed
+        #center gui initialzed
         self.center_file_label = QtGui.QLabel("Find center")
         self.center_file_fs = FileSelector("Object file")
         self.center_file_combobox = QtGui.QComboBox()
@@ -1132,13 +1201,34 @@ class PtychoDialog(QtGui.QDialog):
         self.slice_num.setMinimumWidth(30)
         self.slice_num.setMaximumWidth(40)
         self.slice_num.setMinimumHeight(20)
+        #find recon gui initialized
+        self.recon_file_label = QtGui.QLabel("Reconstruction")
+        self.recon_file_fs = FileSelector("Object file")
+        self.recon_file_combobox = QtGui.QComboBox()
+        self.recon_file_combobox.addItems(self.center_algo_list) #Can keep same algo list -D
+        self.recon_file_button = QtGui.QPushButton("Reconstruct")
+        self.recon_file_button.setDefault(False)
+        self.recon_file_button.setAutoDefault(False)
+        self.recon_file_button.clicked.connect(lambda: self.recon('click'))
+
+        self.r_iter = QtGui.QLineEdit('')
+        self.r_iter.setMinimumWidth(30)
+        self.r_iter.setMaximumWidth(40)
+        self.r_iter.setMinimumHeight(20)
+
+        self.r_slice_num = QtGui.QLineEdit('')
+        self.r_slice_num.setMinimumWidth(30)
+        self.r_slice_num.setMaximumWidth(40)
+        self.r_slice_num.setMinimumHeight(20)
+        #TODO Make the above code AddWidgeted
+
 
         # self.line_edit.returnPressed.connect(self.line_edit_updated)
         #obselete
-        self.lock_in_button = QtGui.QPushButton('Lock in')
-        self.lock_in_button.setDefault(False)
-        self.lock_in_button.setAutoDefault(False)
-        self.lock_in_button.clicked.connect(lambda: self.lock_in('click')) #Make a lock in function
+        # self.lock_in_button = QtGui.QPushButton('Lock in')
+        # self.lock_in_button.setDefault(False)
+        # self.lock_in_button.setAutoDefault(False)
+        # self.lock_in_button.clicked.connect(lambda: self.lock_in('click')) #Make a lock in function
 
 
 
@@ -1405,7 +1495,7 @@ class PtychoDialog(QtGui.QDialog):
         # self.tab1_grid1.addWidget(self.probe_file_fs, self.tab1_grid1_row, 1)
         # self.tab1_grid1.addWidget(self.probe_file_combobox, self.tab1_grid1_row, 2)
         # self.tab1_grid1.addWidget(self.probe_file_button, self.tab1_grid1_row, 3)
-
+        #TODO: put the Recon functionality into the next box
         self.tab1_grid2_row = 0
         self.tab1_grid2.addWidget(self.x_scan_step_label, self.tab1_grid2_row, 0)
         self.tab1_grid2.addWidget(self.x_scan_step_sb, self.tab1_grid2_row, 1)
@@ -1724,6 +1814,37 @@ class PtychoDialog(QtGui.QDialog):
             #print(np.shape(image))
             #self.im = ax.imshow(image[:,:,self.image_slider.value()], cmap=self._color_map, interpolation='none')
             self.set_image(ax, image[:,:,self.image_slider.value()], new_file=new_file)
+        #TODO: Implement different image showing technique by changing the parameters below
+        #image file is [z,y,x]. If we fix one as the slider, we can show the others
+        #
+        elif dim == 'xy':
+            self.image_slider.setMaximum(image.shape[2] - 1)
+            self.enable_slider()
+            self.disable_complex()
+            self.enable_mods()
+            self.enable_roi_and_pix()
+            #print(np.shape(image))
+            #self.im = ax.imshow(image[:,:,self.image_slider.value()], cmap=self._color_map, interpolation='none')
+            self.set_image(ax, image[:,:,self.image_slider.value()], new_file=new_file)
+        elif dim == 'yz':
+            self.image_slider.setMaximum(image.shape[2] - 1)
+            self.enable_slider()
+            self.disable_complex()
+            self.enable_mods()
+            self.enable_roi_and_pix()
+            #print(np.shape(image))
+            #self.im = ax.imshow(image[:,:,self.image_slider.value()], cmap=self._color_map, interpolation='none')
+            self.set_image(ax, image[:,:,self.image_slider.value()], new_file=new_file)
+        elif dim == 'xy':
+            self.image_slider.setMaximum(image.shape[2] - 1)
+            self.enable_slider()
+            self.disable_complex()
+            self.enable_mods()
+            self.enable_roi_and_pix()
+            #print(np.shape(image))
+            #self.im = ax.imshow(image[:,:,self.image_slider.value()], cmap=self._color_map, interpolation='none')
+            self.set_image(ax, image[:,:,self.image_slider.value()], new_file=new_file)
+
         # elif dim == 'plot':
         #     self.disable_slider()
         #     self.disable_complex()
@@ -1747,6 +1868,8 @@ class PtychoDialog(QtGui.QDialog):
         #         self.set_image(ax, np.angle(image), new_file=new_file)
         #     else:
         #         print('complex array error')
+
+
         else:
             self.disable_slider()
             self.disable_complex()
@@ -2985,7 +3108,7 @@ class MplCanvas(FigureCanvas):
         self.fig.set_facecolor(brush_to_color_tuple(window_brush))
         self.fig.set_edgecolor(brush_to_color_tuple(window_brush))
         self._active = False
-#find FileSelector
+# FileSelector
 class FileSelector(QtGui.QFrame,PtychoDialog):
 
 
@@ -3038,7 +3161,7 @@ class FileSelector(QtGui.QFrame,PtychoDialog):
 
     def line_edit_updated(self, text):
         self.filename = str(text)
-    #find Select file in class called FileSelector
+    # Select file in class called FileSelector
 
     def select_file(self):
 
