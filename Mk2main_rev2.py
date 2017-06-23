@@ -121,7 +121,7 @@ class PtychoDialog(QtGui.QDialog):
         self.advanced = False
 
         #for the align_proj class
-        self.aligned = False
+        self.al = False
 
 
 
@@ -184,7 +184,7 @@ class PtychoDialog(QtGui.QDialog):
         self.setLayout(self.vbox)
 
     def set_canvas(self):
-        self.canvas = MplCanvas(width=20, height=0.25, dpi=50) #not this canvas#  -D
+        self.canvas = MplCanvas(width=8, height=0.25, dpi=50) #not this canvas#  -D
         self.canvas_gbox = QtGui.QGroupBox()
         self.canvas_vbox = QtGui.QVBoxLayout()
         self.canvas_gbox.setLayout(self.canvas_vbox)
@@ -274,13 +274,11 @@ class PtychoDialog(QtGui.QDialog):
         self.save_pix_button.setDefault(False)
         self.save_pix_button.setAutoDefault(False)
 
-
         # self.normalize_button.clicked.connect(self.apply_roi)
 
         self.normalize_button.clicked.connect(self.norm) #-D
         self.subtract_button.clicked.connect(self.sub)  # -D
         self.save_pix_button.clicked.connect(self.saveh5)  # -D
-
 
 
         self.bin_cb = QtGui.QCheckBox("Binning")
@@ -610,8 +608,17 @@ class PtychoDialog(QtGui.QDialog):
         #do math on unflipped,swapped file
         #flip, swap file
         #show file
+
+
     #Find recon function
     def recon(self,click):
+        #no locked in
+        self.r_locked = [0,0,"Text"]
+        self.locked[0] = np.int(self.r_iter.text())
+        #self.locked[1] = np.int(self..text())
+        self.locked[2] = self.center_file_combobox.currentText()
+
+
         fname = './tomo_2_Ga_K_aligned.h5'
         fname_out = './tomo_2_Ga_K_aligned_recon.h5'
         # fname='./tomo_wo3_xrf_recon_realign.h5'
@@ -629,8 +636,8 @@ class PtychoDialog(QtGui.QDialog):
         num_iter = np.int
 
         f = h5py.File(fname, 'r+')  # r+ is read/write
-        prj = np.array(f['proj'])
-        prj[prj < 0] = 0
+        # prj[prj < 0] = 0
+        prj = self.al
         angle = np.array(f['angle'])
         f.close()
 
@@ -841,11 +848,11 @@ class PtychoDialog(QtGui.QDialog):
         lower_y = min((xy[1], y2))
         upper_y = max((xy[1], y2))
 
-        ys = lower_y
-        ye = upper_y
-
         xs = lower_x
         xe = upper_x
+
+        ys = lower_y
+        ye = upper_y
 
         # kingBG = np.sum((np.fliplr(self.image))[min((xy[0], x2)):max((xy[0], x2)), min((xy[1], y2)):max((xy[1], y2)),
         #                 self.image_slider.value()])
@@ -905,12 +912,11 @@ class PtychoDialog(QtGui.QDialog):
 
         self.x_shift=x_shift
         self.y_shift=y_shift
+        self.al = data #make sure to secure before the display flip
         data = np.fliplr(np.swapaxes(data.copy(),0,2))
         self.h5 = data.copy()
         self.show_image(data, dim='3', new_file=True)
         self._clear_views()
-
-
     def saveh5(self): #ONLY WORKS IF THE ORIGINAL FILE IS CHANGED (SUB OR NORM)
         nameh5 = str(QtGui.QFileDialog.getSaveFileName(self, "File name"))
         if "." not in nameh5:
@@ -951,9 +957,6 @@ class PtychoDialog(QtGui.QDialog):
         self.vmax = maxshow
         self.show_image(normimage,dim='3',new_file=True)
         #print("########")
-
-
-
 
     def sub(self):  # now average will take a slice value in the range from -D
         # Can I put currentBG outside the loop?
@@ -1166,7 +1169,7 @@ class PtychoDialog(QtGui.QDialog):
         self.initial_input_data_button.clicked.connect(lambda: self.show_file(type='diff'))#add the flip here-D
         #self.initial_input_data_button.clicked.connect(self.transpose_im) #one more transpose step -D
         #everything else not used -D
-        self.alignment_data_label = QtGui.QLabel("Align file")
+        self.alignment_data_label = QtGui.QLabel("Align (select ROI first)")
         self.alignment_data_fs = FileSelector("Open file")
         self.alignment_data_combobox = QtGui.QComboBox()
         self.alignment_data_combobox.addItems(self.alignment_data_options)
@@ -1174,12 +1177,10 @@ class PtychoDialog(QtGui.QDialog):
         self.alignment_data_button.setDefault(False)
         self.alignment_data_button.setAutoDefault(False)
 
-
         #TODO: make this the align function
         self.alignment_data_button.clicked.connect(lambda: self.align_image('click')) #changed to diff because -D
         self.al_check_rbutton = QtGui.QRadioButton("The file is already aligned")
         self.al_check_rbutton.toggled.connect(lambda: self.al_check_function('click'))
-
 
 
         #center gui initialzed
@@ -1204,6 +1205,7 @@ class PtychoDialog(QtGui.QDialog):
         #find recon gui initialized
         self.recon_file_label = QtGui.QLabel("Reconstruction")
         self.recon_file_fs = FileSelector("Object file")
+        self.r_iter_label = QtGui.QLabel("Number of iterations")
         self.recon_file_combobox = QtGui.QComboBox()
         self.recon_file_combobox.addItems(self.center_algo_list) #Can keep same algo list -D
         self.recon_file_button = QtGui.QPushButton("Reconstruct")
@@ -1240,7 +1242,6 @@ class PtychoDialog(QtGui.QDialog):
         self.probe_file_button.setDefault(False)
         self.probe_file_button.setAutoDefault(False)
         self.probe_file_button.clicked.connect(lambda: self.show_file('prb'))
-        self.x_scan_step_label = QtGui.QLabel("X Scan step size")
         self.x_scan_step_sb = QtGui.QDoubleSpinBox()
         self.x_scan_step_sb.setMaximumWidth(100)
         self.y_scan_step_label = QtGui.QLabel("Y Scan step size")
@@ -1277,6 +1278,7 @@ class PtychoDialog(QtGui.QDialog):
         #self.ny_obj_label = QtGui.QLabel("Object y dimension")
         #self.ny_obj_sb = QtGui.QSpinBox()
         #self.ny_obj_sb.setMaximumWidth(100)
+
         self.start_ave_label = QtGui.QLabel("Average starting iteration")
         self.start_ave_sb = QtGui.QDoubleSpinBox()
         self.start_ave_sb.setMaximumWidth(100)
@@ -1367,6 +1369,7 @@ class PtychoDialog(QtGui.QDialog):
             #self.ny_obj_label.setVisible(True)
             #self.nx_obj_sb.setVisible(True)
             #self.nx_obj_label.setVisible(True)
+
             self.tab1_grid3_gbox.setVisible(True)
             self.advanced = True
             self.advanced_button.setText("Basic")
@@ -1439,7 +1442,7 @@ class PtychoDialog(QtGui.QDialog):
         self.tab1_grid1 = QtGui.QGridLayout()
         self.tab1_grid2 = QtGui.QGridLayout()
         self.tab1_grid3 = QtGui.QGridLayout()
-        self.tab1_grid1_gbox = QtGui.QGroupBox("Import File")
+        self.tab1_grid1_gbox = QtGui.QGroupBox("Process File")
         self.tab1_grid2_gbox = QtGui.QGroupBox("Main")
         self.tab1_grid3_gbox = QtGui.QGroupBox("Experimental")
         self.tab1_grid1_gbox.setLayout(self.tab1_grid1)
@@ -1457,55 +1460,45 @@ class PtychoDialog(QtGui.QDialog):
         def line_edit_updated(self, text):
             self.number_of_iterations = str(text)
 
-
-
-        # self.setMinimumHeight(35)
-
-
-
-
-
-
-
+        #self.setMinimumHeight(60)
         self.tab1_grid1.addWidget(self.alignment_data_label, self.tab1_grid1_row, 0)
         self.tab1_grid1.addWidget(self.al_check_rbutton, self.tab1_grid1_row, 1)
         self.tab1_grid1.addWidget(self.alignment_data_combobox, self.tab1_grid1_row, 2)
         self.tab1_grid1.addWidget(self.alignment_data_button, self.tab1_grid1_row, 3)
         self.tab1_grid1_row += 1
-        #find center adjusted
         self.tab1_grid1.addWidget(self.center_file_label, self.tab1_grid1_row, 0)
         #self.tab1_grid1.addWidget(self.center_file_fs, self.tab1_grid1_row, 1)
         self.tab1_grid1.addWidget(self.center_file_combobox, self.tab1_grid1_row+1, 0)
-        #Fix this
         self.tab1_grid1.addWidget(QtGui.QLabel("Number of positions"),self.tab1_grid1_row, 1)
         self.tab1_grid1.addWidget(QtGui.QLabel("Input Slice Number"), self.tab1_grid1_row+1, 1)
-
         self.tab1_grid1.addWidget(self.iter, self.tab1_grid1_row, 2)
         self.tab1_grid1.addWidget(self.slice_num, self.tab1_grid1_row+1, 2)
         #self.tab1_grid1.addWidget(self.lock_in_button,self.tab1_grid1_row+1, 3)
         self.tab1_grid1.addWidget(self.center_file_button, self.tab1_grid1_row, 3)
 
+        #-Align file (from image section) (No need to implement, current image)
+        # -User selected rotation center (if the best slice is 25, use the 25th of the best guess array)
+        # -Algorithm (drop down menu)
+        # -Number of iterations
+
         self.tab1_grid1_row += 1
-
-
-
-
-
         # self.tab1_grid1.addWidget(self.probe_file_label, self.tab1_grid1_row, 0)
         # self.tab1_grid1.addWidget(self.probe_file_fs, self.tab1_grid1_row, 1)
         # self.tab1_grid1.addWidget(self.probe_file_combobox, self.tab1_grid1_row, 2)
         # self.tab1_grid1.addWidget(self.probe_file_button, self.tab1_grid1_row, 3)
         #TODO: put the Recon functionality into the next box
+
         self.tab1_grid2_row = 0
-        self.tab1_grid2.addWidget(self.x_scan_step_label, self.tab1_grid2_row, 0)
-        self.tab1_grid2.addWidget(self.x_scan_step_sb, self.tab1_grid2_row, 1)
-        #self.tab1_grid2_row += 1
+        # find recon adjusted
+        self.tab1_grid2.addWidget(self.recon_file_label, self.tab1_grid2_row, 0)
+        self.tab1_grid2.addWidget(self.r_iter_label, self.tab1_grid2_row, 1)
+        self.tab1_grid2_row += 1
         self.tab1_grid2.addWidget(self.y_scan_step_label, self.tab1_grid2_row, 2)
         self.tab1_grid2.addWidget(self.y_scan_step_sb, self.tab1_grid2_row, 3)
         self.tab1_grid2_row += 1
         self.tab1_grid2.addWidget(self.max_obj_amp_label, self.tab1_grid2_row, 0)
         self.tab1_grid2.addWidget(self.max_obj_amp_sb, self.tab1_grid2_row, 1)
-        #self.tab1_grid2_row += 1
+        self.tab1_grid2_row += 1
         self.tab1_grid2.addWidget(self.min_obj_amp_label, self.tab1_grid2_row, 2)
         self.tab1_grid2.addWidget(self.min_obj_amp_sb, self.tab1_grid2_row, 3)
         self.tab1_grid2_row += 1
@@ -1514,12 +1507,12 @@ class PtychoDialog(QtGui.QDialog):
         #self.tab1_grid2_row += 1
         self.tab1_grid2.addWidget(self.min_obj_phase_label, self.tab1_grid2_row, 2)
         self.tab1_grid2.addWidget(self.min_obj_phase_sb, self.tab1_grid2_row, 3)
-        #self.tab1_grid_row += 1
-        #self.tab1_grid.addWidget(self.x_roi_label, self.tab1_grid_row, 0)
-        #self.tab1_grid.addWidget(self.x_roi_sb, self.tab1_grid_row, 1)
-        #self.tab1_grid_row += 1
-        #self.tab1_grid.addWidget(self.y_roi_label, self.tab1_grid_row, 0)
-        #self.tab1_grid.addWidget(self.y_roi_sb, self.tab1_grid_row, 1)
+        # self.tab1_grid_row += 1
+        # self.tab1_grid.addWidget(self.x_roi_label, self.tab1_grid_row, 0)
+        # self.tab1_grid.addWidget(self.x_roi_sb, self.tab1_grid_row, 1)
+        # self.tab1_grid_row += 1
+        # self.tab1_grid.addWidget(self.y_roi_label, self.tab1_grid_row, 0)
+        # self.tab1_grid.addWidget(self.y_roi_sb, self.tab1_grid_row, 1)
         self.tab1_grid2_row += 1
         self.tab1_grid2.addWidget(self.save_name_label, self.tab1_grid2_row, 0)
         self.tab1_grid2.addWidget(self.save_name_qle, self.tab1_grid2_row, 1)
@@ -1600,7 +1593,7 @@ class PtychoDialog(QtGui.QDialog):
         #self.nx_obj_label.setVisible(False)
         #self.ny_obj_sb.setVisible(False)
         #self.ny_obj_label.setVisible(False)
-        self.tab1_grid2_gbox.setVisible(False) #Shows/ hides the extra boxes on left -D
+        self.tab1_grid2_gbox.setVisible(True) #Shows/ hides the extra boxes on left -D
         self.tab1_grid3_gbox.setVisible(False)
 
         hbox1 = QtGui.QHBoxLayout()
