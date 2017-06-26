@@ -12,6 +12,7 @@ import time
 
 superfile= 0
 svalue = 0
+current_array = ['3','xy','yz','xz']
 
 #import multiprocessing as mp
 import matplotlib
@@ -77,7 +78,7 @@ class PtychoDialog(QtGui.QDialog):
 
 
         self.superfile = "Bad"
-
+        self.current_dim = '3'
 
         
         self._thread = None
@@ -480,8 +481,8 @@ class PtychoDialog(QtGui.QDialog):
 
     def on_motion(self, event):
         if self.set_roi_enabled and event.button == 1 and event.inaxes:
-            self.rect.set_width(event.xdata - self.crop_x0) #crop_x0 is lower, crop_x1 is higher -D
-            self.rect.set_height(event.ydata - self.crop_y0)
+            self.rect.set_width(int(round(event.xdata)) - self.crop_x0) #crop_x0 is lower, crop_x1 is higher -D
+            self.rect.set_height(int(round(event.ydata)) - self.crop_y0)
             self.rect.set_xy((self.crop_x0, self.crop_y0))
 
             self.rect_xy=self.rect.get_xy()
@@ -686,15 +687,24 @@ class PtychoDialog(QtGui.QDialog):
     #BUG can only align image when dragging from the top left corner
 
     def xy(self, click):
-        self.show_image(self.h5, dim='xy', new_file=True)
+        self.current_dim = 'xy'
+        self.show_image(self.image, dim='xy', new_file=True)
         self._clear_views()
 
     def xz(self, click):
-        self.show_image(self.h5, dim='xz', new_file=True)
+        print("Flippedud is for xz",self.flippedud)
+        # if self.current_dim == 'xy':
+        #     self.image = np.flipud(self.image)
+        self.current_dim = 'xz'
+        self.show_image(self.image, dim='xz', new_file=True)
         self._clear_views()
 
     def yz(self, click):
-        self.show_image(self.h5, dim='yz', new_file=True)
+        # if self.current_dim == 'xy':
+        #     self.image = np.flipud(self.image)
+        print("Flippedud is for yz", self.flippedud)
+        self.current_dim = 'yz'
+        self.show_image(self.image, dim='yz', new_file=True)
         self._clear_views()
 
 
@@ -777,6 +787,8 @@ class PtychoDialog(QtGui.QDialog):
         self.h5 = data.copy()
         self.show_image(data, dim='3', new_file=True)
         self._clear_views()
+
+        self.current_dim = '3'
 
 
 
@@ -901,6 +913,8 @@ class PtychoDialog(QtGui.QDialog):
         ys = lower_y
         ye = upper_y
 
+        #TODO:
+
         # kingBG = np.sum((np.fliplr(self.image))[min((xy[0], x2)):max((xy[0], x2)), min((xy[1], y2)):max((xy[1], y2)),
         #                 self.image_slider.value()])
         # print("Four Corners")
@@ -922,14 +936,23 @@ class PtychoDialog(QtGui.QDialog):
                     cm_y = np.zeros(nz)
                     proj_y = np.zeros((ye - ys, nz))
                     norm_ref = norm
+                #Ask ye - ys 37.1929585153
+                    #nz 167
+                    #Shape of proj_y (37,)
+                    #Shape of np.sum (38,)
+                print("ye - ys",ye - ys)
+                print("nz", nz)
                 slice = slice * norm_ref / norm
                 data[i, :, :] *= norm_ref / norm
                 cmx, cm_y[i] = center_of_mass(slice)
+                print("Shape of proj_y", np.shape(proj_y[:,i]))
+                print("Shape of np.sum", np.shape(np.sum(slice, axis=1)))
+
                 proj_y[:, i] = np.sum(slice, axis=1)
 
             y_shift = cm_y - cm_y[0]
             x_shift, proj_new = find_vertical_shift(proj_y)
-            f = h5py.File(fname + '_xyshift.h5', 'w')
+            f = h5py.File(fname + '_xyshift.h5', 'w') #Kyle said to try this
             f.create_dataset('x_shift', data=x_shift)
             f.create_dataset('y_shift', data=y_shift)
             # f.close
@@ -1894,14 +1917,14 @@ class PtychoDialog(QtGui.QDialog):
         else:
             return
 
-    def show_image(self, image, dim=None, new_file=False):
+    def show_image(self, image, dim='3', new_file=False):
         # print('Test') #test 1 -D
         canvas = self.canvas
         fig = canvas.figure
         fig.clear()
         #F: this is ax
         ax = fig.add_subplot(111)
-        self.img_type = dim
+        self.img_type = '3'
         if type(image) is not np.ndarray:
             image = np.array(image)
         if dim == '3':
@@ -1926,23 +1949,27 @@ class PtychoDialog(QtGui.QDialog):
             #self.im = ax.imshow(image[:,:,self.image_slider.value()], cmap=self._color_map, interpolation='none')
             self.set_image(ax, image[:,:,self.image_slider.value()], new_file=new_file)
         elif dim == 'xz':
-            self.image_slider.setMaximum(image.shape[2] - 1)
+            self.image_slider.setMaximum(image.shape[1] - 1)
             self.enable_slider()
             self.disable_complex()
             self.enable_mods()
             self.enable_roi_and_pix()
             #print(np.shape(image))
             #self.im = ax.imshow(image[:,:,self.image_slider.value()], cmap=self._color_map, interpolation='none')
-            self.set_image(ax, image[:,:,self.image_slider.value()], new_file=new_file)
+            self.set_image(ax, image[:,self.image_slider.value(),:], new_file=new_file)
+            #TODO: flip up down
         elif dim == 'yz':
-            self.image_slider.setMaximum(image.shape[2] - 1)
+            self.image_slider.setMaximum(image.shape[0] - 1)
             self.enable_slider()
             self.disable_complex()
             self.enable_mods()
             self.enable_roi_and_pix()
             #print(np.shape(image))
             #self.im = ax.imshow(image[:,:,self.image_slider.value()], cmap=self._color_map, interpolation='none')
-            self.set_image(ax, image[:,:,self.image_slider.value()], new_file=new_file)
+            self.set_image(ax, image[self.image_slider.value(),:,:], new_file=new_file)
+            #TODO: flip up down
+
+
 
         # elif dim == 'plot':
         #     self.disable_slider()
@@ -2009,8 +2036,15 @@ class PtychoDialog(QtGui.QDialog):
             im_to_show = self.rebin(im_to_show, (im_to_show.shape[0] / x_bin_val, im_to_show.shape[1] / y_bin_val))
         if self.thresh:
             im_to_show[im_to_show < float(self.thresh_sb.value())] = 0
-        if orient:
-            im_to_show = np.flipud(im_to_show.T)
+        if orient == True:
+            if self.current_dim == 'xy' or self.current_dim == '3':
+                print("current dim is ", self.current_dim)
+                print("in the xy orient section")
+                im_to_show = np.flipud(im_to_show.T)
+            elif self.current_dim == 'xz' or self.current_dim == 'yz':
+                print("current dim is ", self.current_dim)
+                print("in the xz orient section")
+                im_to_show = im_to_show.T
             axes.set_title('Image in proper orientation')
         else:
             axes.set_title('Image is flipped and transposed')
@@ -2198,7 +2232,7 @@ class PtychoDialog(QtGui.QDialog):
             self.mod_bad_pix(mod)
             self.flippedud = not self.flippedud
             self.image = np.flipud(self.image)
-            if self.img_type == '3':
+            if self.img_type in current_array:
                 #ax.imshow(self.image[:,:,self.image_slider.value()], cmap=self._color_map, interpolation='none')
                 self.set_image(ax, self.image[:,:,self.image_slider.value()])
             elif self.img_type == 'complex':
@@ -2215,7 +2249,7 @@ class PtychoDialog(QtGui.QDialog):
             self.mod_bad_pix(mod)
             self.flippedlr = not self.flippedlr
             self.image = np.fliplr(self.image)
-            if self.img_type == '3':
+            if self.img_type == current_array:
                 #ax.imshow(self.image[:,:,self.image_slider.value()], cmap=self._color_map, interpolation='none')
                 self.set_image(ax, self.image[:,:,self.image_slider.value()])
             elif self.img_type == 'complex':
@@ -2231,7 +2265,7 @@ class PtychoDialog(QtGui.QDialog):
         elif mod == 'transpose':
             self.mod_bad_pix(mod)
             self.transposed = not self.transposed
-            if self.img_type == '3':
+            if self.img_type == current_array:
                 #self.image[:,:,self.image_slider.value()] = self.image[:,:,self.image_slider.value()].T
 
 
@@ -2263,8 +2297,9 @@ class PtychoDialog(QtGui.QDialog):
                 self.rect = self.initrect()
                 ax.add_patch(self.rect)
         elif mod == 'cmap':
-            if self.img_type == '3':
+            if self.img_type == current_array:
                 #self.im = ax.imshow(self.image[:,:,self.image_slider.value()], cmap=self._color_map, interpolation='none')
+                print("cmap called")
                 self.set_image(ax, self.image[:,:,self.image_slider.value()], new_file=reset_zoom)
             elif self.img_type == 'complex':
                 if self.amp_rbutton.isChecked():
@@ -2280,7 +2315,7 @@ class PtychoDialog(QtGui.QDialog):
                 self.rect = self.initrect()
                 ax.add_patch(self.rect)
         elif mod == 'log':
-            if self.img_type == '3':
+            if self.img_type == current_array:
                 #self.im = ax.imshow(np.log(self.image[:,:,self.image_slider.value()] + 1e-9), cmap=self._color_map, interpolation='none')
                 self.set_image(ax, self.image[:,:,self.image_slider.value()])
             elif self.img_type == 'plot':
@@ -2293,7 +2328,7 @@ class PtychoDialog(QtGui.QDialog):
                     #ax.imshow(np.log(np.angle(self.image) + 1e-9), cmap=self._color_map, interpolation='none')
                     self.set_image(ax, np.angle(self.image))
         elif mod == 'lin':
-            if self.img_type == '3':
+            if self.img_type == current_array:
                 #self.im = ax.imshow(self.image[:,:,self.image_slider.value()], cmap=self._color_map, interpolation='none')
                 self.set_image(ax, self.image[:,:,self.image_slider.value()])
             elif self.img_type == 'plot':
@@ -2345,18 +2380,25 @@ class PtychoDialog(QtGui.QDialog):
 
     def transpose_im(self):
         self.mod_image('transpose')
-
+    #Bug: when we normalize image, and then center function, we get a very low display
+    #Bug: ROI box does not match cursor after doing some action, starts matching cursor when change slides
 
     def slide(self):
-        self.show_image(self.image, dim='3')
+        print("slide called")
+        print("current dim is  ", self.current_dim)
+        self.show_image((self.image), dim= self.current_dim, new_file=True)
         self.image_slice_qle.setText(str(self.image_slider.value()))
-        self.best_guess_input.setText(str(self.rot_center[self.image_slider.value()]))
+    #Bug: the line below throws error until we fix the issue with once the slide changes, the yz or xz view dissappear to xy
+        #however, this line is not the reason for the strange bug with the image not staying
+        if self.current_dim == '3':
+            self.best_guess_input.setText(str(self.rot_center[self.image_slider.value()]))
+
 
         #self.change_best_guess
 
     def slide_from_qle(self):
         self.image_slider.setValue(int(self.image_slice_qle.text()))
-        self.image_slider.setValue(int(self.best_guess_input.text()))
+        #self.image_slider.setValue(int(self.best_guess_input.text()))
 
 
     #def slide_from_qle_modded(self):
