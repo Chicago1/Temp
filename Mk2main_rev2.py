@@ -79,6 +79,7 @@ class PtychoDialog(QtGui.QDialog):
 
         self.superfile = "Bad"
         self.current_dim = '3'
+        self.found_center = False
 
         
         self._thread = None
@@ -787,18 +788,14 @@ class PtychoDialog(QtGui.QDialog):
         data = np.fliplr(np.swapaxes(cent_test.copy(), 0, 2)) #Make sure cent_test flipping is ok
         self.h5 = data.copy()
 
-        maxshow = 0
-        length = data.shape[2]
-        for i in range(length):
-            if np.amax((np.fliplr(data))[:, :, i]) >= maxshow:
-                maxshow = np.amax((np.fliplr(data))[:, :, i])
-                # print("Maxshow=",maxshow, "slide=", i)
-        self.vmax = maxshow
+
+        self.vmax = np.amax(data)
 
         self.show_image(data, dim='3', new_file=True)
         self._clear_views()
 
         self.current_dim = '3'
+        self.found_center = True
 
 
 
@@ -1155,6 +1152,8 @@ class PtychoDialog(QtGui.QDialog):
             self.canvas.draw()'''
             if self.img_type is not None:
                 self.mod_image('lin')
+                self.vmax = np.amax(self.image)
+
 
 
     def canvas_log(self):
@@ -1165,6 +1164,8 @@ class PtychoDialog(QtGui.QDialog):
             self.canvas.draw()'''
             if self.img_type is not None:
                 self.mod_image('log')
+                self.vmax = math.log(np.amax(self.image) + 0.001)
+
 
     def canvas_amp(self):
         if self.amp_rbutton.isChecked() and self.amp_rbutton.isEnabled():
@@ -1917,13 +1918,7 @@ class PtychoDialog(QtGui.QDialog):
 
             file_ = np.swapaxes(file_,0,2)
             if file_.ndim == 3:
-                maxshow=0
-                length = file_.shape[2]
-                for i in range(length):
-                    if np.amax((np.fliplr(file_))[:, :, i]) >= maxshow:
-                        maxshow = np.amax((np.fliplr(file_))[:, :, i])
-                        # print("Maxshow=",maxshow, "slide=", i)
-                self.vmax = maxshow
+                self.vmax = np.amax(file_)
                 self.show_image(file_, dim='3', new_file=True)
                 self._clear_views()
             else:
@@ -2091,6 +2086,7 @@ class PtychoDialog(QtGui.QDialog):
         #print(np.shape(im_to_show))
 
         self.im = axes.imshow(im_to_show, cmap=self._color_map, vmin= self.vmin, vmax=self.vmax, interpolation='none')  # interesting- D
+        #BUG: Logarithmic scale is bad, switching between each one and other is hard
         #print("Self.vmax=", self.vmax)
 
 
@@ -2254,6 +2250,7 @@ class PtychoDialog(QtGui.QDialog):
         canvas.draw()"""
 
     def mod_image(self, mod, reset_zoom=False):
+        self.vmax = np.amax(self.image)
         canvas = self.canvas
         fig = canvas.figure
         fig.clear()
@@ -2421,7 +2418,7 @@ class PtychoDialog(QtGui.QDialog):
         self.image_slice_qle.setText(str(self.image_slider.value()))
     #Bug: the line below throws error until we fix the issue with once the slide changes, the yz or xz view dissappear to xy
         #however, this line is not the reason for the strange bug with the image not staying
-        if self.current_dim == '3':
+        if self.current_dim == '3' and self.found_center == True:
             self.best_guess_input.setText(str(self.rot_center[self.image_slider.value()]))
 
 
