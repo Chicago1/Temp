@@ -70,7 +70,7 @@ class PtychoDialog(QtGui.QDialog):
         QtGui.QDialog.__init__(self, parent)
         PtychoDialog.instance = self
 
-        self.best_guess_label = QtGui.QLabel("Current Best Center Guess from Slice")
+        self.best_guess_label = QtGui.QLabel("Slice's Center Guess")
         self.best_guess_input = QtGui.QLineEdit()
         self.best_guess_input.setMaximumWidth(100)
         self.best_guess_input.setReadOnly(True)
@@ -913,7 +913,9 @@ class PtychoDialog(QtGui.QDialog):
         ys = lower_y
         ye = upper_y
 
-        #TODO:
+        #TODO 6/26: 1. Split each step into own group box
+                    #2. Make the scale fixed for the whole array
+                    #3. Make the scale changeable (for the data or for the displayed?)
 
         # kingBG = np.sum((np.fliplr(self.image))[min((xy[0], x2)):max((xy[0], x2)), min((xy[1], y2)):max((xy[1], y2)),
         #                 self.image_slider.value()])
@@ -1236,7 +1238,7 @@ class PtychoDialog(QtGui.QDialog):
 
     def set_widgets(self):
         # tab 1
-        self.initial_input_data_label = QtGui.QLabel("Open file") #Add open file functionality -D
+        self.initial_input_data_label = QtGui.QLabel("File path") #Add open file functionality -D
         self.open_file = FileSelector("Open file")
         self.initial_input_data_combobox = QtGui.QComboBox()
         self.initial_input_data_combobox.addItems(self.initial_input_data_options)
@@ -1246,7 +1248,7 @@ class PtychoDialog(QtGui.QDialog):
         self.initial_input_data_button.clicked.connect(lambda: self.show_file(type='diff'))#add the flip here-D
         #self.initial_input_data_button.clicked.connect(self.transpose_im) #one more transpose step -D
         #everything else not used -D
-        self.alignment_data_label = QtGui.QLabel("Align (select ROI first)")
+        self.alignment_data_label = QtGui.QLabel("Select ROI first")
         self.alignment_data_fs = FileSelector("Open file")
         self.alignment_data_combobox = QtGui.QComboBox()
         self.alignment_data_combobox.addItems(self.alignment_data_options)
@@ -1255,8 +1257,8 @@ class PtychoDialog(QtGui.QDialog):
         self.alignment_data_button.setAutoDefault(False)
 
         self.alignment_data_button.clicked.connect(lambda: self.align_image('click')) #changed to diff because -D
-        self.al_check_rbutton = QtGui.QRadioButton("The file is already aligned")
-        self.al_check_rbutton.toggled.connect(lambda: self.al_check_function('click'))
+        self.al_check_cbutton = QtGui.QCheckBox("The file is already aligned")
+        self.al_check_cbutton.toggled.connect(lambda: self.al_check_function('click'))
 
 
         #center gui initialzed
@@ -1274,10 +1276,13 @@ class PtychoDialog(QtGui.QDialog):
         self.iter.setMaximumWidth(40)
         self.iter.setMinimumHeight(20)
 
+
+
         self.slice_num= QtGui.QLineEdit('')
         self.slice_num.setMinimumWidth(30)
         self.slice_num.setMaximumWidth(40)
         self.slice_num.setMinimumHeight(20)
+
         #find recon gui initialized
         self.recon_file_label = QtGui.QLabel("Reconstruction")
         self.recon_file_fs = FileSelector("Object file")
@@ -1559,49 +1564,63 @@ class PtychoDialog(QtGui.QDialog):
 
     def set_main_tab(self):
         #self.tab1_grid = QtGui.QGridLayout()
-        self.tab1_grid1 = QtGui.QGridLayout()
+        self.tab1_grid1_a = QtGui.QGridLayout()
+        self.tab1_grid1_b = QtGui.QGridLayout()
+        self.tab1_grid1_c = QtGui.QGridLayout()
+
         self.tab1_grid2 = QtGui.QGridLayout()
         self.tab1_grid3 = QtGui.QGridLayout()
-        self.tab1_grid1_gbox = QtGui.QGroupBox("Process File")
-        self.tab1_grid2_gbox = QtGui.QGroupBox("Main")
+
+        self.tab1_grid1_gbox_a = QtGui.QGroupBox("Import File")#split process file into 3 boxes
+        self.tab1_grid1_gbox_b = QtGui.QGroupBox("Alingment")  # split process file into 3 boxes
+        self.tab1_grid1_gbox_c = QtGui.QGroupBox("Finding Center")  # split process file into 3 boxes
+
+        self.tab1_grid2_gbox = QtGui.QGroupBox("Reconstruction")
         self.tab1_grid3_gbox = QtGui.QGroupBox("Experimental")
-        self.tab1_grid1_gbox.setLayout(self.tab1_grid1)
+
+        self.tab1_grid1_gbox_a.setLayout(self.tab1_grid1_a)
+        self.tab1_grid1_gbox_b.setLayout(self.tab1_grid1_b)
+        self.tab1_grid1_gbox_c.setLayout(self.tab1_grid1_c)
+
         self.tab1_grid2_gbox.setLayout(self.tab1_grid2)
         self.tab1_grid3_gbox.setLayout(self.tab1_grid3)
 
         '''basic'''
-        self.tab1_grid1_row = 0
-        self.tab1_grid1.addWidget(self.initial_input_data_label, self.tab1_grid1_row, 0)
-        self.tab1_grid1.addWidget(self.open_file, self.tab1_grid1_row, 1)
-        self.tab1_grid1.addWidget(self.initial_input_data_combobox, self.tab1_grid1_row, 2)
-        self.tab1_grid1.addWidget(self.initial_input_data_button, self.tab1_grid1_row, 3)
-        self.tab1_grid1_row += 1
+        self.tab1_grid1_row_a = 0
+        self.tab1_grid1_a.addWidget(self.initial_input_data_label, self.tab1_grid1_row_a, 0)
+        self.tab1_grid1_a.addWidget(self.open_file, self.tab1_grid1_row_a, 1)
+        self.tab1_grid1_a.addWidget(self.initial_input_data_combobox, self.tab1_grid1_row_a, 2)
+        self.tab1_grid1_a.addWidget(self.initial_input_data_button, self.tab1_grid1_row_a, 3)
+        self.tab1_grid1_row_a += 1
 
         def line_edit_updated(self, text):
             self.number_of_iterations = str(text)
 
         #self.setMinimumHeight(60)
-        self.tab1_grid1.addWidget(self.alignment_data_label, self.tab1_grid1_row, 0)
-        self.tab1_grid1.addWidget(self.al_check_rbutton, self.tab1_grid1_row, 1)
-        self.tab1_grid1.addWidget(self.alignment_data_combobox, self.tab1_grid1_row, 2)
-        self.tab1_grid1.addWidget(self.alignment_data_button, self.tab1_grid1_row, 3)
-        self.tab1_grid1_row += 1
-        self.tab1_grid1.addWidget(self.center_file_label, self.tab1_grid1_row, 0)
+        self.tab1_grid1_row_b = 0
+        self.tab1_grid1_b.addWidget(self.alignment_data_label, self.tab1_grid1_row_b, 0)
+        self.tab1_grid1_b.addWidget(self.al_check_cbutton, self.tab1_grid1_row_b, 1)
+        self.tab1_grid1_b.addWidget(self.alignment_data_combobox, self.tab1_grid1_row_b, 2)
+        self.tab1_grid1_b.addWidget(self.alignment_data_button, self.tab1_grid1_row_b, 3)
+        self.tab1_grid1_row_b += 1
+
+        self.tab1_grid1_row_c = 0
+        #self.tab1_grid1_c.addWidget(self.center_file_label, self.tab1_grid1_row_c, 0)
         #self.tab1_grid1.addWidget(self.center_file_fs, self.tab1_grid1_row, 1)
-        self.tab1_grid1.addWidget(self.center_file_combobox, self.tab1_grid1_row+1, 0)
-        self.tab1_grid1.addWidget(QtGui.QLabel("Number of positions"),self.tab1_grid1_row, 1)
-        self.tab1_grid1.addWidget(QtGui.QLabel("Input Slice Number"), self.tab1_grid1_row+1, 1)
-        self.tab1_grid1.addWidget(self.iter, self.tab1_grid1_row, 2)
-        self.tab1_grid1.addWidget(self.slice_num, self.tab1_grid1_row+1, 2)
+        self.tab1_grid1_c.addWidget(QtGui.QLabel("Number of positions"),self.tab1_grid1_row_c, 1)
+        self.tab1_grid1_c.addWidget(QtGui.QLabel("Input Slice Number"), self.tab1_grid1_row_c+1, 1)
+        self.tab1_grid1_c.addWidget(self.iter, self.tab1_grid1_row_c, 0)
+        self.tab1_grid1_c.addWidget(self.slice_num, self.tab1_grid1_row_c+1, 0)
         #self.tab1_grid1.addWidget(self.lock_in_button,self.tab1_grid1_row+1, 3)
-        self.tab1_grid1.addWidget(self.center_file_button, self.tab1_grid1_row, 3)
+        self.tab1_grid1_c.addWidget(self.center_file_combobox, self.tab1_grid1_row_c, 3)
+        self.tab1_grid1_c.addWidget(self.center_file_button, self.tab1_grid1_row_c+1, 3)
 
         #-Align file (from image section) (No need to implement, current image)
         # -User selected rotation center (if the best slice is 25, use the 25th of the best guess array)
         # -Algorithm (drop down menu)
         # -Number of iterations
 
-        self.tab1_grid1_row += 1
+        self.tab1_grid1_row_c += 1
         # self.tab1_grid1.addWidget(self.probe_file_label, self.tab1_grid1_row, 0)
         # self.tab1_grid1.addWidget(self.probe_file_fs, self.tab1_grid1_row, 1)
         # self.tab1_grid1.addWidget(self.probe_file_combobox, self.tab1_grid1_row, 2)
@@ -1609,14 +1628,14 @@ class PtychoDialog(QtGui.QDialog):
         #TODO: put the Recon functionality into the next box
         self.tab1_grid2_row = 0
         # find recon adjusted
-        self.tab1_grid2.addWidget(self.recon_file_label, self.tab1_grid2_row, 0)
+        #self.tab1_grid2.addWidget(self.recon_file_label, self.tab1_grid2_row, 0)
         self.tab1_grid2.addWidget(self.recon_file_combobox, self.tab1_grid2_row, 1)
         self.tab1_grid2.addWidget(self.r_iter_label, self.tab1_grid2_row, 2)
         self.tab1_grid2.addWidget(self.r_iter, self.tab1_grid2_row, 3)
         self.tab1_grid2_row += 1
 
-        self.tab1_grid2.addWidget(self.best_guess_label, self.tab1_grid2_row, 0)
-        self.tab1_grid2.addWidget(self.best_guess_input, self.tab1_grid2_row, 1)
+        self.tab1_grid2.addWidget(self.best_guess_label, self.tab1_grid2_row, 1)
+        self.tab1_grid2.addWidget(self.best_guess_input, self.tab1_grid2_row, 2)
         self.tab1_grid2.addWidget(self.recon_file_button, self.tab1_grid2_row, 3)
         self.tab1_grid2_row += 1
 
@@ -1744,7 +1763,10 @@ class PtychoDialog(QtGui.QDialog):
         self.tab1_sa_vbox = QtGui.QVBoxLayout()
         self.tab1_sa_groupbox.setLayout(self.tab1_sa_vbox)
         #self.tab1_sa_vbox.addLayout(self.tab1_grid)
-        self.tab1_sa_vbox.addWidget(self.tab1_grid1_gbox)
+        self.tab1_sa_vbox.addWidget(self.tab1_grid1_gbox_a)
+        self.tab1_sa_vbox.addWidget(self.tab1_grid1_gbox_b)
+        self.tab1_sa_vbox.addWidget(self.tab1_grid1_gbox_c)
+
         self.tab1_sa_vbox.addWidget(self.tab1_grid2_gbox)
         self.tab1_sa_vbox.addWidget(self.tab1_grid3_gbox)
         self.tab1_sa_vbox.addStretch(0)
@@ -1854,7 +1876,7 @@ class PtychoDialog(QtGui.QDialog):
     def al_check_function(self,click): #DONT TOUCH CLICK, IT MAKES THIS WORK
 
 
-        if self.al_check_rbutton.isChecked():
+        if self.al_check_cbutton.isChecked():
             print("Aligned")
             self.checked = True
         else:
