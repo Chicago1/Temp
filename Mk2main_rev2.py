@@ -110,6 +110,7 @@ class PtychoDialog(QtGui.QDialog):
         self.rot_center =0
 
         self.vmax = 0
+        self.vmin = 0
         self.locked = False
 
         def __del__(self):
@@ -660,7 +661,7 @@ class PtychoDialog(QtGui.QDialog):
         # best_center = np.float(11)
 
         # alg = sys.argv[3]
-        # Ask: should the user be able to change algorithim? -Yes
+        # should the user be able to change algorithim? -Yes
 
         num_iter = np.int(self.r_locked[0])
 
@@ -710,7 +711,7 @@ class PtychoDialog(QtGui.QDialog):
 
 
     #center function
-    #Ask
+
     #make sliding input box that shows the best guess for center based off of slice number
     def lock_in(self):
         self.locked = [0,0,"Text"]
@@ -741,7 +742,7 @@ class PtychoDialog(QtGui.QDialog):
 
         #fname = sys.argv[1] + '.h5'
         #fname_out = sys.argv[1] + '_center.h5'
-        #Ask we want the user to put in the position and which slice
+        #we want the user to put in the position and which slice?
 
 
         # pos = np.int(sys.argv[2])
@@ -785,6 +786,15 @@ class PtychoDialog(QtGui.QDialog):
 
         data = np.fliplr(np.swapaxes(cent_test.copy(), 0, 2)) #Make sure cent_test flipping is ok
         self.h5 = data.copy()
+
+        maxshow = 0
+        length = data.shape[2]
+        for i in range(length):
+            if np.amax((np.fliplr(data))[:, :, i]) >= maxshow:
+                maxshow = np.amax((np.fliplr(data))[:, :, i])
+                # print("Maxshow=",maxshow, "slide=", i)
+        self.vmax = maxshow
+
         self.show_image(data, dim='3', new_file=True)
         self._clear_views()
 
@@ -859,7 +869,7 @@ class PtychoDialog(QtGui.QDialog):
 
 
         fname = join_split[0]
-        #Ask: What does the 2 mean in tomo_2_Ga_K.H5
+        #What does the 2 mean in tomo_2_Ga_K.H5?
         #why are restrictions on the file name
         elem = join_split[1]
 
@@ -884,7 +894,7 @@ class PtychoDialog(QtGui.QDialog):
         # angle = np.delete(angle,[1,19,20,21,22,33],axis=0)
 
 
-        nz, ny, nx = np.shape(data) #Ask: What is ys, ye, xs, xe?:
+        nz, ny, nx = np.shape(data) #What is ys, ye, xs, xe?:
 
         print("This is shape",np.shape(data) )
         #make this a input box that selected the vertical range of data
@@ -924,7 +934,7 @@ class PtychoDialog(QtGui.QDialog):
         # print("max((xy[0], x2))", max((xy[0], x2)))
         # print("min((xy[1], y2))", min((xy[1], y2)))
         # print("max((xy[1], y2))", max((xy[1], y2)))
-        #Ask:
+
         #XY: column view
         #XZ/YZ
         #
@@ -938,7 +948,6 @@ class PtychoDialog(QtGui.QDialog):
                     cm_y = np.zeros(nz)
                     proj_y = np.zeros((ye - ys, nz))
                     norm_ref = norm
-                #Ask ye - ys 37.1929585153
                     #nz 167
                     #Shape of proj_y (37,)
                     #Shape of np.sum (38,)
@@ -1004,7 +1013,6 @@ class PtychoDialog(QtGui.QDialog):
                 hf.create_dataset("recon_slice", data=self.recon_slice)  # test-D
                 hf.create_dataset("rot_center", data=self.rot_center)  # test-D
 
-    #TODO: implement such that the text box updates when the value changes
     # def change_best_guess(self):
     #     self.best_guess_input.setText(QtCore.QString(str(self.image_slider.value)))
 
@@ -1296,21 +1304,20 @@ class PtychoDialog(QtGui.QDialog):
         self.recon_file_button.clicked.connect(lambda: self.recon('click'))
         #find view buttons
 
-        self.view_button = QtGui.QLabel("View Using A Different Axis")
-        #TODO: create function that takes input the button pressed and shows the image in that orientation
-        self.xy_button = QtGui.QPushButton("XY")
+        #self.view_button = QtGui.QLabel("View Using A Different Axis")
+        self.xy_button = QtGui.QPushButton("View XY")
         self.xy_button.setMaximumWidth(150)
         self.xy_button.setDefault(False)
         self.xy_button.setAutoDefault(False)
         self.xy_button.clicked.connect(lambda: self.xy('click'))
 
-        self.xz_button = QtGui.QPushButton("XZ")
+        self.xz_button = QtGui.QPushButton("View XZ")
         self.xz_button.setMaximumWidth(150)
         self.xz_button.setDefault(False)
         self.xz_button.setAutoDefault(False)
         self.xz_button.clicked.connect(lambda: self.xz('click'))
 
-        self.yz_button = QtGui.QPushButton("YZ")
+        self.yz_button = QtGui.QPushButton("View YZ")
         self.yz_button.setMaximumWidth(150)
         self.yz_button.setDefault(False)
         self.yz_button.setAutoDefault(False)
@@ -1625,23 +1632,22 @@ class PtychoDialog(QtGui.QDialog):
         # self.tab1_grid1.addWidget(self.probe_file_fs, self.tab1_grid1_row, 1)
         # self.tab1_grid1.addWidget(self.probe_file_combobox, self.tab1_grid1_row, 2)
         # self.tab1_grid1.addWidget(self.probe_file_button, self.tab1_grid1_row, 3)
-        #TODO: put the Recon functionality into the next box
         self.tab1_grid2_row = 0
         # find recon adjusted
         #self.tab1_grid2.addWidget(self.recon_file_label, self.tab1_grid2_row, 0)
-        self.tab1_grid2.addWidget(self.recon_file_combobox, self.tab1_grid2_row, 1)
-        self.tab1_grid2.addWidget(self.r_iter_label, self.tab1_grid2_row, 2)
-        self.tab1_grid2.addWidget(self.r_iter, self.tab1_grid2_row, 3)
+        self.tab1_grid2.addWidget(self.recon_file_combobox, self.tab1_grid2_row, 0)
+        self.tab1_grid2.addWidget(self.r_iter_label, self.tab1_grid2_row, 1)
+        self.tab1_grid2.addWidget(self.r_iter, self.tab1_grid2_row, 2)
         self.tab1_grid2_row += 1
 
-        self.tab1_grid2.addWidget(self.best_guess_label, self.tab1_grid2_row, 1)
-        self.tab1_grid2.addWidget(self.best_guess_input, self.tab1_grid2_row, 2)
-        self.tab1_grid2.addWidget(self.recon_file_button, self.tab1_grid2_row, 3)
+        self.tab1_grid2.addWidget(self.best_guess_label, self.tab1_grid2_row, 0)
+        self.tab1_grid2.addWidget(self.best_guess_input, self.tab1_grid2_row, 1)
+        self.tab1_grid2.addWidget(self.recon_file_button, self.tab1_grid2_row, 2)
         self.tab1_grid2_row += 1
 
-        self.tab1_grid2.addWidget(self.view_button, self.tab1_grid2_row, 0) #Maybe add -D
-        self.tab1_grid2.addWidget(self.xy_button, self.tab1_grid2_row, 1)
-        self.tab1_grid2.addWidget(self.xz_button, self.tab1_grid2_row, 2)
+        #self.tab1_grid2.addWidget(self.view_button, self.tab1_grid2_row, 0) #Maybe add -D
+        self.tab1_grid2.addWidget(self.xy_button, self.tab1_grid2_row-2, 3)
+        self.tab1_grid2.addWidget(self.xz_button, self.tab1_grid2_row-1, 3)
         self.tab1_grid2.addWidget(self.yz_button, self.tab1_grid2_row, 3)
 
 
@@ -1911,6 +1917,13 @@ class PtychoDialog(QtGui.QDialog):
 
             file_ = np.swapaxes(file_,0,2)
             if file_.ndim == 3:
+                maxshow=0
+                length = file_.shape[2]
+                for i in range(length):
+                    if np.amax((np.fliplr(file_))[:, :, i]) >= maxshow:
+                        maxshow = np.amax((np.fliplr(file_))[:, :, i])
+                        # print("Maxshow=",maxshow, "slide=", i)
+                self.vmax = maxshow
                 self.show_image(file_, dim='3', new_file=True)
                 self._clear_views()
             else:
@@ -1958,7 +1971,6 @@ class PtychoDialog(QtGui.QDialog):
             #print(np.shape(image))
             #self.im = ax.imshow(image[:,:,self.image_slider.value()], cmap=self._color_map, interpolation='none')
             self.set_image(ax, image[:,:,self.image_slider.value()], new_file=new_file)
-        #TODO: Implement different image showing technique by changing the parameters below
         #image file is [z,y,x]. If we fix one as the slider, we can show the others
         #
         elif dim == 'xy':
@@ -1979,7 +1991,6 @@ class PtychoDialog(QtGui.QDialog):
             #print(np.shape(image))
             #self.im = ax.imshow(image[:,:,self.image_slider.value()], cmap=self._color_map, interpolation='none')
             self.set_image(ax, image[:,self.image_slider.value(),:], new_file=new_file)
-            #TODO: flip up down
         elif dim == 'yz':
             self.image_slider.setMaximum(image.shape[0] - 1)
             self.enable_slider()
@@ -1989,7 +2000,6 @@ class PtychoDialog(QtGui.QDialog):
             #print(np.shape(image))
             #self.im = ax.imshow(image[:,:,self.image_slider.value()], cmap=self._color_map, interpolation='none')
             self.set_image(ax, image[self.image_slider.value(),:,:], new_file=new_file)
-            #TODO: flip up down
 
 
 
@@ -2079,12 +2089,11 @@ class PtychoDialog(QtGui.QDialog):
             self.im.set_data(im_to_show)
             self.im.changed()'''
         #print(np.shape(im_to_show))
-        if self.vmax != 0:
-            self.im = axes.imshow(im_to_show, cmap=self._color_map, vmax=self.vmax, interpolation='none')  # interesting- D
-            #print("Self.vmax=", self.vmax)
 
-        else:
-            self.im = axes.imshow(im_to_show, cmap=self._color_map, interpolation='none')  # interesting- D
+        self.im = axes.imshow(im_to_show, cmap=self._color_map, vmin= self.vmin, vmax=self.vmax, interpolation='none')  # interesting- D
+        #print("Self.vmax=", self.vmax)
+
+
         divider = make_axes_locatable(axes)
         cax = divider.append_axes("right", size="5%", pad=0.05)
 
