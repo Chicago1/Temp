@@ -1,0 +1,22 @@
+import sys; print('Python %s on %s' % (sys.version, sys.platform))
+sys.path.extend(['/Users/Dmitry/PycharmProjects/Mk2'])
+pwd
+ls *h5
+import h5py
+f = h5py.File('tomo_wo3_xrf.h5','r')
+array = np.array(f['proj'])
+array = np.array(f['prj'])
+import nunpy as np
+import numpy as np
+array = np.array(f['proj'])
+array.shape
+f.close()
+img = np.zeros((167,60))
+for i in range(167):
+    img[i,:] = array[i,20,:]
+plt.imshow(img)
+import matplotlib.pyplot as plt
+plt.imshow(img)
+import matplotlib.pyplot as plt
+histroy
+history

@@ -80,6 +80,7 @@ class PtychoDialog(QtGui.QDialog):
         self.superfile = "Bad"
         self.current_dim = '3'
         self.found_center = False
+        self.last_image = None
 
         
         self._thread = None
@@ -275,7 +276,7 @@ class PtychoDialog(QtGui.QDialog):
 
         self.canvas_south2_hbox = QtGui.QHBoxLayout()
         #self.canvas_south2_grid = QtGui.QGridLayout()
-        self.roi_gbox = QtGui.QGroupBox("ROI")
+        self.roi_gbox = QtGui.QGroupBox("Modifications")
         self.roi_grid = QtGui.QGridLayout()
         #self.roi_grid.setVerticalSpacing(1)
         self.set_roi_button = QtGui.QPushButton("ROI")
@@ -284,7 +285,7 @@ class PtychoDialog(QtGui.QDialog):
         self.set_roi_button.setCheckable(True)
         self.set_roi_button.clicked[bool].connect(self.set_roi_enable)
 
-        self.normalize_button = QtGui.QPushButton("Norm")
+        self.normalize_button = QtGui.QPushButton("Rescale")
         self.normalize_button.setDefault(False)
         self.normalize_button.setAutoDefault(False)
         self.normalize_button.setEnabled(False)
@@ -293,6 +294,10 @@ class PtychoDialog(QtGui.QDialog):
         self.subtract_button.setDefault(False)
         self.subtract_button.setAutoDefault(False)
         self.subtract_button.setEnabled(False)
+
+        self.undo_button = QtGui.QPushButton("Undo")
+        self.undo_button.setDefault(False)
+        self.undo_button.setAutoDefault(False)
 
         self.save_pix_button = QtGui.QPushButton("Save h5")  # save function on right -D
         self.save_pix_button.setDefault(False)
@@ -303,6 +308,8 @@ class PtychoDialog(QtGui.QDialog):
         self.normalize_button.clicked.connect(self.norm) #-D
         self.subtract_button.clicked.connect(self.sub)  # -D
         self.save_pix_button.clicked.connect(self.saveh5)  # -D
+        self.undo_button.clicked.connect(self.undo)  # -D
+
 
 
         self.bin_cb = QtGui.QCheckBox("Binning")
@@ -317,13 +324,16 @@ class PtychoDialog(QtGui.QDialog):
         self.bin_hbox.addWidget(self.bin_qle2)
         self.square_cb = QtGui.QCheckBox("Square")
         self.bin_cb.stateChanged.connect(self.bin_action)
+
         self.roi_gbox.setLayout(self.roi_grid)
         self.roi_grid.addWidget(self.set_roi_button, 0, 0)
-        self.roi_grid.addWidget(self.normalize_button, 0, 1)
-        self.roi_grid.addWidget(self.subtract_button, 0, 2)
-        self.roi_grid.addLayout(self.bin_hbox, 1, 0)
-        self.roi_grid.addWidget(self.bin_cb, 1, 1)
-        self.roi_grid.addWidget(self.square_cb, 2, 0)
+        self.roi_grid.addWidget(self.normalize_button, 1, 0)
+        self.roi_grid.addWidget(self.subtract_button, 0, 1)
+        self.roi_grid.addWidget(self.undo_button, 1, 1)
+
+        self.roi_grid.addLayout(self.bin_hbox, 2, 0)
+        self.roi_grid.addWidget(self.bin_cb, 2, 1)
+        self.roi_grid.addWidget(self.square_cb, 3, 0)
 
         self.bad_pix_grid = QtGui.QGridLayout()
         #self.bad_pix_grid.setVerticalSpacing(1)
@@ -643,6 +653,7 @@ class PtychoDialog(QtGui.QDialog):
 
     #Find recon function
     def recon(self,click):
+        self.last()
         #no locked in function needed
         self.r_locked = [0,0,"Text"]
         self.r_locked[0] = np.int(self.r_iter.text())
@@ -727,7 +738,7 @@ class PtychoDialog(QtGui.QDialog):
 
 
     def find_center(self, click):
-
+        self.last()
         self.lock_in()
 
         str(self.superfile)
@@ -803,6 +814,7 @@ class PtychoDialog(QtGui.QDialog):
 
 
     def align_image(self , click):  # use self.image
+        self.last()
 
         def check_diff(ref, line):
             return np.sqrt(np.sum((ref - line) ** 2))
@@ -1013,8 +1025,18 @@ class PtychoDialog(QtGui.QDialog):
     # def change_best_guess(self):
     #     self.best_guess_input.setText(QtCore.QString(str(self.image_slider.value)))
 
-    #Find norm fucntion
+    #Find undo fucntion
+
+    def last(self):
+        np.save("temp.npy", self.image)
+
+    def undo(self):
+        self.current_dim = '3'
+        self.image_slider.setValue(0)
+        self.show_image(np.load("temp.npy"), dim='3', new_file=True)
+
     def norm(self): #now will take a slice value in the range from -D
+        self.last()
         #Can I change i = 0 to i = getslidervalue()? I did it anyway, seems to work
         xy=self.rect.get_xy()
         height=(self.rect.get_height())# can be negative -D
@@ -1044,6 +1066,7 @@ class PtychoDialog(QtGui.QDialog):
 
     def sub(self):  # now average will take a slice value in the range from -D
         # Can I put currentBG outside the loop?
+        self.last()
         xy = self.rect.get_xy()
         height = (self.rect.get_height())  # can be negative -D
         width = (self.rect.get_width())
@@ -1948,6 +1971,7 @@ class PtychoDialog(QtGui.QDialog):
             return
 
     def show_image(self, image, dim='3', new_file=False):
+        self.vmax = np.amax(image)
         # print('Test') #test 1 -D
         canvas = self.canvas
         fig = canvas.figure

@@ -470,7 +470,7 @@ def pixel_shift(array, x_shift, y_shift, z_shift):
     return sf.ifftshift(sf.fftn(sf.fftshift(tmp)))
 
 
-def pixel_shift_2d(array, x_shift, y_shift):
+def pixel_shift_2d(array, x_shift, y_shift):# Important function
     nx, ny = npy.shape(array)
     tmp = sf.ifftshift(sf.ifftn(sf.fftshift(array)))
     nest = npy.mgrid[0:nx, 0:ny]
