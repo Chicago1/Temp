@@ -299,11 +299,11 @@ class PtychoDialog(QtGui.QDialog):
         self.set_roi_button.setCheckable(True)
         self.set_roi_button.clicked[bool].connect(self.set_roi_enable)
 
-        self.set_line_button = QtGui.QPushButton("Line")
-        self.set_line_button.setDefault(False)
-        self.set_line_button.setAutoDefault(False)
-        self.set_line_button.setCheckable(True)
-        self.set_line_button.clicked[bool].connect(self.set_line_enable)
+        # self.set_line_button = QtGui.QPushButton("Line")
+        # self.set_line_button.setDefault(False)
+        # self.set_line_button.setAutoDefault(False)
+        # self.set_line_button.setCheckable(True)
+        # self.set_line_button.clicked[bool].connect(self.set_line_enable)
 
         self.normalize_button = QtGui.QPushButton("Rescale")
         self.normalize_button.setDefault(False)
@@ -354,7 +354,7 @@ class PtychoDialog(QtGui.QDialog):
         self.roi_grid.addLayout(self.bin_hbox, 2, 0)
         self.roi_grid.addWidget(self.bin_cb, 2, 1)
         self.roi_grid.addWidget(self.square_cb, 3, 0)
-        self.roi_grid.addWidget(self.set_line_button, 4, 0)
+        #self.roi_grid.addWidget(self.set_line_button, 4, 0)
 
         self.bad_pix_grid = QtGui.QGridLayout()
         #self.bad_pix_grid.setVerticalSpacing(1)
@@ -1399,7 +1399,11 @@ class PtychoDialog(QtGui.QDialog):
         self.iter.setMaximumWidth(40)
         self.iter.setMinimumHeight(20)
 
-
+        self.set_line_button = QtGui.QPushButton("Line")
+        self.set_line_button.setDefault(False)
+        self.set_line_button.setAutoDefault(False)
+        self.set_line_button.setCheckable(True)
+        self.set_line_button.clicked[bool].connect(self.set_line_enable)
 
         self.vert_input= QtGui.QLineEdit('')
         self.vert_input.setMinimumWidth(30)
@@ -1734,6 +1738,7 @@ class PtychoDialog(QtGui.QDialog):
         self.tab1_grid1_c.addWidget(QtGui.QLabel("Vertical Plane Position"), self.tab1_grid1_row_c+1, 1)
         self.tab1_grid1_c.addWidget(self.iter, self.tab1_grid1_row_c, 0)
         self.tab1_grid1_c.addWidget(self.vert_input, self.tab1_grid1_row_c+1, 0)
+        self.tab1_grid1_c.addWidget(self.set_line_button, self.tab1_grid1_row_c+1, 2)
         #self.tab1_grid1.addWidget(self.lock_in_button,self.tab1_grid1_row+1, 3)
         self.tab1_grid1_c.addWidget(self.center_file_combobox, self.tab1_grid1_row_c, 3)
         self.tab1_grid1_c.addWidget(self.center_file_button, self.tab1_grid1_row_c+1, 3)
