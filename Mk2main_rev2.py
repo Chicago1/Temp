@@ -69,12 +69,14 @@ class PtychoDialog(QtGui.QDialog):
     def __init__(self, parent=None):
         QtGui.QDialog.__init__(self, parent)
         PtychoDialog.instance = self
-
+        self.line_xy = (0,0)
         self.best_guess_label = QtGui.QLabel("Slice's Center Guess")
         self.best_guess_input = QtGui.QLineEdit()
         self.best_guess_input.setMaximumWidth(100)
         self.best_guess_input.setReadOnly(True)
         self.best_guess_input.returnPressed.connect(self.slide_from_qle)
+
+
 
 
         self.superfile = "Bad"
@@ -94,6 +96,7 @@ class PtychoDialog(QtGui.QDialog):
         self.im = None
         self.colorbar = None
         self.set_roi_enabled = False
+        self.set_line_enabled = False
         self.bad_flag = 0
         self.orient_view = True #Changing this to True to fix issue with image being initialy bad -D
         self.thresh = False
@@ -114,6 +117,8 @@ class PtychoDialog(QtGui.QDialog):
         self.vmax = 0
         self.vmin = 0
         self.locked = False
+
+
 
         def __del__(self):
             # Restore sys.stdout
@@ -157,7 +162,8 @@ class PtychoDialog(QtGui.QDialog):
         self.set_main_tab()
 
         self.set_canvas()
-
+######
+        #find: Rectangle top
         self.rect = Rectangle((0, 0), 0, 0, alpha=0.3, facecolor='gray',
                               edgecolor='red', linewidth=2) #this changes the apperacne of the box -D
         #self.canvas.axes.add_patch(self.rect)
@@ -166,6 +172,14 @@ class PtychoDialog(QtGui.QDialog):
         self.rect_height=0
         self.rect_width=0
 
+        self.line = Rectangle((0, 0), 0, 0, alpha=1, facecolor='magenta',
+                              edgecolor='magenta', linewidth=1)  # this changes the apperacne of the box -D
+        # self.canvas.axes.add_patch(self.rect)
+        self.show_line = False
+        self.line_xy = (0,0)
+        self.line_height = 0
+        self.line_width = 0
+######
         self.start_button.clicked.connect(self.start)
         self.start_button.setDefault(False)
         self.start_button.setAutoDefault(False)
@@ -285,6 +299,12 @@ class PtychoDialog(QtGui.QDialog):
         self.set_roi_button.setCheckable(True)
         self.set_roi_button.clicked[bool].connect(self.set_roi_enable)
 
+        self.set_line_button = QtGui.QPushButton("Line")
+        self.set_line_button.setDefault(False)
+        self.set_line_button.setAutoDefault(False)
+        self.set_line_button.setCheckable(True)
+        self.set_line_button.clicked[bool].connect(self.set_line_enable)
+
         self.normalize_button = QtGui.QPushButton("Rescale")
         self.normalize_button.setDefault(False)
         self.normalize_button.setAutoDefault(False)
@@ -334,6 +354,7 @@ class PtychoDialog(QtGui.QDialog):
         self.roi_grid.addLayout(self.bin_hbox, 2, 0)
         self.roi_grid.addWidget(self.bin_cb, 2, 1)
         self.roi_grid.addWidget(self.square_cb, 3, 0)
+        self.roi_grid.addWidget(self.set_line_button, 4, 0)
 
         self.bad_pix_grid = QtGui.QGridLayout()
         #self.bad_pix_grid.setVerticalSpacing(1)
@@ -461,14 +482,34 @@ class PtychoDialog(QtGui.QDialog):
 
         menu.popup(self.bad_pixels_widget.mapToGlobal(pos))
 
+
+
     def on_press(self, event):
         if event.inaxes:
             self.crop_x0 = round(event.xdata)
             self.crop_y0 = round(event.ydata)
+        print("Reached on press")
+        #self.set_line_enabled = True
+        if self.set_line_enabled:
+            #set as array width
+            #TODO: make the "60" general
+            self.line.set_width(self.image.shape[0])  # crop_x0 is lower, crop_x1 is higher -D
+            self.line.set_height(1)
+            self.line.set_xy((0, round(event.ydata)-0.5))
+
+
+            self.line_xy = self.line.get_xy()
+            self.line_height = self.line.get_height()
+            self.line_width = self.line.get_width()
+
+            self.canvas.draw()
+        self.vert_input.setText(str(round(event.ydata)))
+
 
     def on_release(self, event):
         self.crop_x1 = round(event.xdata)#on release data
         self.crop_y1 = round(event.ydata)
+        print("The line was released on", round(event.ydata))
         if event.inaxes:
             if (self.crop_x0, self.crop_y0) == (self.crop_x1, self.crop_y1):
                 if self.bad_flag:
@@ -492,6 +533,22 @@ class PtychoDialog(QtGui.QDialog):
                                         int(round(self.crop_x1))]'''
 
     def on_motion(self, event):
+        #TODO: add a set_line_enabled flag
+        #line stuff -D
+        if self.set_line_enabled and event.button == 1 and event.inaxes:
+            self.line.set_xy((0, round(event.ydata)-0.5))
+
+            self.line_xy=self.line.get_xy()
+            self.line_height = self.line.get_height()
+            self.line_width = self.line.get_width()
+
+            self.canvas.draw()
+            self.vert_input.setText(str(round(event.ydata)))
+
+
+
+
+        #rectangle stuff -D
         if self.set_roi_enabled and event.button == 1 and event.inaxes:
             self.rect.set_width(int(round(event.xdata)) - self.crop_x0) #crop_x0 is lower, crop_x1 is higher -D
             self.rect.set_height(int(round(event.ydata)) - self.crop_y0)
@@ -503,12 +560,41 @@ class PtychoDialog(QtGui.QDialog):
 
             self.canvas.draw()
 
+
+##### find Rectangle bottom
     def initrect(self):
         rect=Rectangle((0, 0), 0, 0, alpha=0.3, facecolor='gray', edgecolor='red', linewidth=2)
         rect.set_xy(self.rect_xy)
         rect.set_height(self.rect_height)
         rect.set_width(self.rect_width)
         return rect
+
+    def initline(self):
+        line=Rectangle((0, 0), 0, 0, alpha=1, facecolor='magenta', edgecolor='magenta', linewidth=1)
+        line.set_xy(self.line_xy)
+        line.set_height(self.line_height)
+        line.set_width(self.line_width)
+        return line
+#####
+
+    def set_line_enable(self, pressed):
+        print("Set line is pressed")
+        print(pressed)
+        if pressed == True:
+            #self.rect.set_visible(True)
+            #self.canvas.axes.add_patch(self.rect)
+            self.canvas.fig.axes[0].add_patch(self.line)
+            self.show_line = True
+            self.canvas.draw()
+            self.set_line_enabled = True
+
+        else:
+            #self.rect.set_visible(False)
+            self.line.remove()
+            self.show_line = False
+            self.canvas.draw()
+            self.set_line_enabled = False
+
 
 
     def set_roi_enable(self, pressed):
@@ -643,15 +729,20 @@ class PtychoDialog(QtGui.QDialog):
         #flip, swap file
         #show file
 
+    def change_line(self):
+        print("Change line called")
+        self.line.set_xy((0,float(self.vert_input.text())-0.5))
+        self.canvas.draw()
+
+
     def best_guess_number(self):
         slider_pos = self.image_slider.value()
         current_guess = self.rot_center[slider_pos]
         print("Best guess is",current_guess)
         return current_guess
 
-
-
     #Find recon function
+
     def recon(self,click):
         self.last()
         #no locked in function needed
@@ -728,10 +819,10 @@ class PtychoDialog(QtGui.QDialog):
     def lock_in(self):
         self.locked = [0,0,"Text"]
         self.locked[0] = np.int(self.iter.text())
-        self.locked[1] = np.int(self.slice_num.text())
+        self.locked[1] = np.int(float(self.vert_input.text()))
         self.locked[2] = self.center_file_combobox.currentText()
 
-        #Create slice_num
+        #Create vert_input
         print("Number of positions",self.locked[0])
         print("Slice number",self.locked[1])
         print("Current Algo", self.locked[2])
@@ -1310,10 +1401,11 @@ class PtychoDialog(QtGui.QDialog):
 
 
 
-        self.slice_num= QtGui.QLineEdit('')
-        self.slice_num.setMinimumWidth(30)
-        self.slice_num.setMaximumWidth(40)
-        self.slice_num.setMinimumHeight(20)
+        self.vert_input= QtGui.QLineEdit('')
+        self.vert_input.setMinimumWidth(30)
+        self.vert_input.setMaximumWidth(40)
+        self.vert_input.setMinimumHeight(20)
+        self.vert_input.returnPressed.connect(self.change_line)
 
         #find recon gui initialized
         self.recon_file_label = QtGui.QLabel("Reconstruction")
@@ -1639,12 +1731,14 @@ class PtychoDialog(QtGui.QDialog):
         #self.tab1_grid1_c.addWidget(self.center_file_label, self.tab1_grid1_row_c, 0)
         #self.tab1_grid1.addWidget(self.center_file_fs, self.tab1_grid1_row, 1)
         self.tab1_grid1_c.addWidget(QtGui.QLabel("Number of positions"),self.tab1_grid1_row_c, 1)
-        self.tab1_grid1_c.addWidget(QtGui.QLabel("Input Slice Number"), self.tab1_grid1_row_c+1, 1)
+        self.tab1_grid1_c.addWidget(QtGui.QLabel("Vertical Plane Position"), self.tab1_grid1_row_c+1, 1)
         self.tab1_grid1_c.addWidget(self.iter, self.tab1_grid1_row_c, 0)
-        self.tab1_grid1_c.addWidget(self.slice_num, self.tab1_grid1_row_c+1, 0)
+        self.tab1_grid1_c.addWidget(self.vert_input, self.tab1_grid1_row_c+1, 0)
         #self.tab1_grid1.addWidget(self.lock_in_button,self.tab1_grid1_row+1, 3)
         self.tab1_grid1_c.addWidget(self.center_file_combobox, self.tab1_grid1_row_c, 3)
         self.tab1_grid1_c.addWidget(self.center_file_button, self.tab1_grid1_row_c+1, 3)
+        #TODO: make the vert_pos fit in
+
 
         #-Align file (from image section) (No need to implement, current image)
         # -User selected rotation center (if the best slice is 25, use the 25th of the best guess array)
@@ -2059,6 +2153,11 @@ class PtychoDialog(QtGui.QDialog):
         if self.show_rect:
             self.rect=self.initrect()
             ax.add_patch(self.rect)
+            
+
+        if self.show_line:
+            self.line = self.initline()
+            ax.add_patch(self.line)
 
         self.image = image
         canvas.axes = ax
@@ -2297,6 +2396,9 @@ class PtychoDialog(QtGui.QDialog):
             else:
                 self.rect = self.initrect()
                 self.set_image(ax, self.image)
+                
+                self.line = self.initline()
+                self.set_image(ax, self.image)
         elif mod == 'fliplr':
             self.mod_bad_pix(mod)
             self.flippedlr = not self.flippedlr
@@ -2314,6 +2416,10 @@ class PtychoDialog(QtGui.QDialog):
             else:
                 self.rect = self.initrect()
                 self.set_image(ax, self.image)
+
+                self.line = self.initline()
+                self.set_image(ax, self.image)
+                
         elif mod == 'transpose':
             self.mod_bad_pix(mod)
             self.transposed = not self.transposed
@@ -2326,6 +2432,9 @@ class PtychoDialog(QtGui.QDialog):
 
                 #self.im = ax.imshow(self.image[:,:,self.image_slider.value()], cmap=self._color_map, interpolation='none')
                 self.set_image(ax, self.image[:,:,self.image_slider.value()])
+
+                self.line = self.initline()
+                self.set_image(ax, self.image)
             elif self.img_type == 'plot':
                 def swap(xdata, ydata):
                     line.set_xdata(ydata)
@@ -2348,6 +2457,10 @@ class PtychoDialog(QtGui.QDialog):
             if self.show_rect:
                 self.rect = self.initrect()
                 ax.add_patch(self.rect)
+
+                self.line = self.initline()
+                ax.add_patch(self.line)                
+                
         elif mod == 'cmap':
             if self.img_type == current_array:
                 #self.im = ax.imshow(self.image[:,:,self.image_slider.value()], cmap=self._color_map, interpolation='none')
@@ -2450,7 +2563,9 @@ class PtychoDialog(QtGui.QDialog):
 
     def slide_from_qle(self):
         self.image_slider.setValue(int(self.image_slice_qle.text()))
-        #self.image_slider.setValue(int(self.best_guess_input.text()))
+
+    # def vert_pos_setter(self):
+    #     self.vert_input.setText(str(self.line_xy[1]))
 
 
     #def slide_from_qle_modded(self):
